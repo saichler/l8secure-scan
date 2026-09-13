@@ -1,0 +1,152 @@
+syntax = "proto3";
+package secscan;
+option go_package = "./types/secscan";
+
+import "api.proto";
+import "l8common.proto";
+
+enum ScanStatus {
+  SCAN_STATUS_UNSPECIFIED = 0;
+  SCAN_STATUS_PENDING     = 1;
+  SCAN_STATUS_SCANNING    = 2;
+  SCAN_STATUS_COMPLETED   = 3;
+  SCAN_STATUS_FAILED      = 4;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_LOW         = 1;
+  SEVERITY_MEDIUM      = 2;
+  SEVERITY_HIGH        = 3;
+  SEVERITY_CRITICAL    = 4;
+}
+
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_QUEUED      = 1;
+  JOB_STATUS_RUNNING     = 2;
+  JOB_STATUS_COMPLETED   = 3;
+  JOB_STATUS_FAILED      = 4;
+  JOB_STATUS_PARTIAL     = 5;   // some selected images failed to scan
+}
+
+message VulnerabilityCounts {
+  int32 critical = 1;
+  int32 high     = 2;
+  int32 medium   = 3;
+  int32 low      = 4;
+}
+
+message Customer {
+  string customer_id        = 1;
+  string name                = 2;
+  bool   is_active            = 3;
+  l8common.AuditInfo audit_info = 4;
+}
+message CustomerList {
+  repeated Customer list    = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+message ImageCategory {
+  string category_id        = 1;
+  string customer_id        = 2;
+  string name                = 3;
+  string color_code          = 4;
+  l8common.AuditInfo audit_info = 5;
+}
+message ImageCategoryList {
+  repeated ImageCategory list = 1;
+  l8api.L8MetaData metadata  = 2;
+}
+
+message ImageGroup {
+  string image_group_id  = 1;
+  string customer_id     = 2;
+  string image_name      = 3;   // grouping key
+  string category_id     = 4;   // ref ImageCategory by ID, empty = Uncategorized
+  int32  image_ref_count = 5;   // cached
+  int64  latest_build_date = 6; // cached, for default sort
+  VulnerabilityCounts newest_counts = 7; // cached: total_counts of the newest scanned ImageRef in this group
+  VulnerabilityCounts oldest_counts = 8; // cached: total_counts of the oldest scanned ImageRef in this group
+  l8common.AuditInfo audit_info = 9;
+}
+message ImageGroupList {
+  repeated ImageGroup list  = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+message ImageRef {
+  string image_ref_id       = 1;
+  string customer_id        = 2;
+  string image_group_id     = 3;  // ref ImageGroup by ID
+  string repo_name          = 4;
+  string tag                 = 5;
+  string digest               = 6;
+  int64  build_date           = 7;
+  ScanStatus scan_status       = 8;
+  int64  last_scanned_at       = 9;
+  VulnerabilityCounts total_counts    = 10; // sum-up
+  VulnerabilityCounts distinct_counts = 11; // distinct CVEs
+  string scan_error            = 12;
+  l8common.AuditInfo audit_info = 13;
+}
+message ImageRefList {
+  repeated ImageRef list    = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+// Cve is a global catalog entity -- not customer-scoped, no deny rule.
+// Normalizes each CVE's canonical data once instead of repeating it on
+// every finding; also the Prime Object a future cross-image "which
+// images have CVE-X" query would target.
+message Cve {
+  string cve_id              = 1;  // natural key, e.g. "CVE-2023-1234" -- no generated ID needed
+  Severity severity            = 2;
+  string title                 = 3;
+  l8common.AuditInfo audit_info = 4;
+}
+message CveList {
+  repeated Cve list          = 1;
+  l8api.L8MetaData metadata  = 2;
+}
+
+// ImageRefCve is one Trivy finding: "package P in ImageRef R was found
+// vulnerable to Cve C." A Prime Object (see PRD §8) -- despite its two
+// parent FKs -- specifically so a single image's finding list is a
+// normal, server-side-filtered/sorted/paginated root-type query, never
+// an embedded repeated field.
+message ImageRefCve {
+  string image_ref_cve_id    = 1;
+  string customer_id         = 2;  // denormalized from the parent ImageRef, for row scoping
+  string image_ref_id        = 3;  // ref ImageRef by ID
+  string cve_id               = 4;  // ref Cve by ID
+  Severity severity            = 5;  // denormalized from Cve at write time -- this ORM has no join, so sort/filter needs it local
+  string package_name         = 6;
+  string installed_version    = 7;
+  string fixed_version        = 8;
+  string title                 = 9;  // denormalized from Cve -- the finding list needs no lookup to render
+  l8common.AuditInfo audit_info = 10;
+}
+message ImageRefCveList {
+  repeated ImageRefCve list = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+message ScanJob {
+  string scan_job_id         = 1;
+  string customer_id         = 2;
+  repeated string image_ref_ids = 3;
+  JobStatus status              = 4;
+  int32  total_images           = 5;
+  int32  completed_images       = 6;
+  int32  failed_images           = 7;
+  int64  requested_at            = 8;
+  int64  completed_at            = 9;
+  string requested_by            = 10;
+  l8common.AuditInfo audit_info  = 11;
+}
+message ScanJobList {
+  repeated ScanJob list      = 1;
+  l8api.L8MetaData metadata = 2;
+}
