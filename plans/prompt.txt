@@ -1,0 +1,85 @@
+You are implementing one phase of an already-approved PRD for the Layer 8 Image Security Scan Dashboard (l8secure-scan). This prompt is reused verbatim across many independent sessions — one session per phase. You have no memory of any prior session. Everything you need is on disk. Do not assume anything about prior conversations; verify current repo state yourself before acting.
+
+## 0. Which phase are you running?
+
+The phase to execute (a number 1-9 and/or its name) is given to you along with this prompt, e.g. "Phase 3" or "Phase 3 — Scanner". If it was not given, or is ambiguous, STOP and ask which phase to run before doing anything else — do not guess.
+
+The nine phases, and the PRD section(s) each maps to, are defined in the PRD's own Traceability Matrix (§21). As of this writing they are:
+
+| Phase | Name | Primary PRD sections |
+|---|---|---|
+| 1 | Data Model | §7 (protobuf), `proto/secscan.proto`, `proto/make-bindings.sh` |
+| 2 | Backend | §9 (services + ServiceCallbacks, incl. `Cve`/`ImageRefCve`), §10 (`VulnRep`), §6.1 (`ImgRefAdd`), §14 (security config, incl. the `scanner` system role) |
+| 3 | Scanner | §13 (`secscan-scanner`: Trivy scan loop + metadata resolver loop, shared poll-dispatch harness, single replica for v1) |
+| 4 | Desktop UI | §11 (module config, dashboard, group detail, vulnerability detail via `ImageRefCve`, categories, customer admin), §12 (L8UI Includes Audit — must match exactly), §17 (l8ui submodule setup, must happen before any other UI work) |
+| 5 | Mobile UI | §11.7 (parity with Phase 4) |
+| 6 | Mock Data | §15 (`go/tests/mocks/`) |
+| 7 | Deployment | §16 (Dockerfiles, K8s × 4 modes, KIND scripts, `build-all-images.sh`, `deploy.sh`/`undeploy.sh`), §17 (`run-local.sh`) |
+| 8 | Testing | §19 (`go/tests/`) |
+| 9 | Verification | Final pass: re-check §20's compliance checklist line by line against what actually exists in the repo; `VerifyPrdCompletenessBeforeDone`; `VerifyAppHtmlScriptsAgainstLoadingOrder` |
+
+Always re-read the PRD's own §21 to confirm this table hasn't been superseded — it is the source of truth, not this copy.
+
+## 1. Read before doing anything
+
+In this exact order:
+
+1. `plans/image-security-scan-dashboard-prd.md` — the full PRD. Read it end to end, not just the section for your phase; later sections reference earlier design decisions and you need the whole picture (data model, security model, the three verified framework-limitation findings — see §3 below).
+2. `guide-lines/layer-8-ecosystem.md` — project map of the sibling ecosystem.
+3. `guide-lines/layer-8-guide-lines.md` — the full compacted rule set. **This file is long — if your read is truncated, re-read with an offset to get the rest. Do not proceed having only read half of it.** Every rule in it applies; the PRD was written to comply with all of them, but you must still follow them directly while writing code (e.g. `ProtobufRules`, `PrimeObjectReferences`, `MainPackageMinimal`, `Maintainability`, `NoGoGenerics`, `K8sRules`, `SecurityConfigStructure`, `L8QueryRules`, `ScriptLoadingOrder`, `TestLocationAndApproach`, `VendorAndGit`).
+4. `plans/PROGRESS.md` — if it exists, this is the running log of what prior phases (prior sessions) actually did, including any deviations from the PRD they had to make and why. If it does not exist, this is the first phase being executed; create it (template in §4 below).
+5. The actual repo state (`git log`, `git status`, `find go -maxdepth 3`, etc.) — do not trust `PROGRESS.md` blindly. If it claims a phase is done but the code doesn't reflect that, treat the code as ground truth, stop, and report the discrepancy to the user before proceeding.
+
+## 2. Prerequisites
+
+Before starting your assigned phase, confirm every lower-numbered phase is actually complete in the repo (not just checked off in `PROGRESS.md`). If a prerequisite is missing or looks wrong, stop and ask rather than building on a shaky foundation or silently redoing someone else's phase.
+
+## 3. Ground rules while executing
+
+- **The PRD is the already-approved plan.** Do not re-litigate its architecture or ask for re-approval of the overall approach. If you find a genuine gap, contradiction, or something that turns out not to work once you're actually implementing it, record it in `PROGRESS.md` and ask the user how to resolve it — do not silently deviate or "fix" something you don't understand yet.
+- **Three design decisions in this PRD are deliberate, verified against actual framework source — not bugs to "fix":**
+  1. `customer_id` on writes is a trusted client-supplied value (from the UI session), not server-validated. `IServiceCallback` has no access to caller identity in this framework — confirmed by reading `l8types/go/ifs/ServiceLevelAgreement.go` and `l8services/go/services/base/BaseService*.go`. This is an accepted v1 trust boundary (§4/§9 of the PRD), not something to patch.
+  2. `secscan-scanner` runs as a single replica for v1. `l8services`' "2-phase commit" is a write-replication protocol, not a job-claim/lock primitive (verified against `l8services/go/services/transaction/states/*.go`) — do not "fix" the single-replica limitation by inventing a claim mechanism; that was already tried and found unsound.
+  3. Vulnerability findings are `Cve` (global catalog) + `ImageRefCve` (per-image, customer-scoped) Prime Objects — never an embedded `repeated` struct field on `ImageRef`. This was verified against `l8orm/go/orm/stmt/QueryToSql.go`: a child/nested table only gets the query's `WHERE`/`ORDER BY` applied when it is the query's own root type; otherwise it's an unfiltered full-table read. Do not "simplify" this back into an embedded field — that would silently reintroduce an unbounded read on every vulnerability-detail view.
+- **Never touch `l8types/go/ifs/`** or any other sibling project's source to work around a limitation — per `FrameworkInterfaceBoundaries`, flag it in `PROGRESS.md` and ask instead.
+- **Never edit `vendor/`**, never run `go mod tidy/vendor/init`, per `VendorAndGit`.
+- Follow `CleanupTestBinaries`: never `go build ./path/to/main/`; use `go build ./...` or `-o /dev/null`.
+- Only implement what your phase covers. Don't reach ahead into later phases' scope even if it seems convenient.
+
+## 4. `PROGRESS.md` template (create if absent, update when you finish)
+
+```markdown
+# Implementation Progress
+
+| Phase | Status | Session notes |
+|---|---|---|
+| 1. Data Model | not started / in progress / done | |
+| 2. Backend | | |
+| 3. Scanner | | |
+| 4. Desktop UI | | |
+| 5. Mobile UI | | |
+| 6. Mock Data | | |
+| 7. Deployment | | |
+| 8. Testing | | |
+| 9. Verification | | |
+
+## Deviations from the PRD (if any)
+
+- (phase) — what changed, why, date.
+
+## Open questions raised back to the user
+
+- (phase) — question, date, resolution if any.
+```
+
+When you finish your phase, update your row's status and add a short, concrete note (what you built, where, anything a future phase/session needs to know that isn't obvious from the code itself — e.g. "used library X for Y because Z").
+
+## 5. Before declaring the phase done
+
+- `go build ./...` and `go vet ./...` clean.
+- For a UI phase: verify `app.html`/`m/app.html` script tags against `../l8erp/rules/desktop-script-loading-order.md` / `mobile-script-loading-order.md` in the exact order, per `VerifyAppHtmlScriptsAgainstLoadingOrder`.
+- For the Deployment phase: verify every binary has `build.sh` + `Dockerfile`, all four K8s YAML modes exist, per `K8sRules`.
+- For the Testing phase: `find go/ -name "*_test.go" -not -path "go/tests/*"` must return nothing, per `TestLocationAndApproach`.
+- For the final Verification phase (9): walk `§20`'s compliance checklist in the PRD line by line against what's actually in the repo, not what the PRD says should be true.
+- Update `PROGRESS.md`.
+- Commit your work with a clear message naming the phase. Do not push unless the user asked you to for this session.
