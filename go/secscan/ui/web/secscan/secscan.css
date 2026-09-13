@@ -1,0 +1,92 @@
+/*
+© 2025 Sharon Aicler (saichler@gmail.com)
+
+Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
+*/
+
+/* L8UIThemeCompliance: --layer8d-* tokens only, no hardcoded colors, no
+   [data-theme="dark"] blocks (theme.css handles dark mode centrally). */
+
+.secscan-dashboard-top {
+    margin-bottom: 16px;
+}
+
+.secscan-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.secscan-kpi-loading {
+    color: var(--layer8d-text-medium);
+    padding: 12px 0;
+}
+
+.secscan-groups-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.secscan-group-detail-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--layer8d-border);
+}
+
+.secscan-group-detail-category {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.secscan-group-detail-trend {
+    flex: 1;
+    min-width: 260px;
+}
+
+.secscan-trend-empty {
+    color: var(--layer8d-text-medium);
+    font-size: 13px;
+}
+
+.secscan-group-detail-toolbar {
+    margin-bottom: 12px;
+}
+
+.secscan-vuln-summary {
+    margin-bottom: 16px;
+}
+
+.secscan-add-images-summary ul {
+    margin: 4px 0 12px 20px;
+    padding: 0;
+}
+
+.layer8d-table-simple {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--layer8d-bg-white);
+}
+
+.layer8d-table-simple th,
+.layer8d-table-simple td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--layer8d-border);
+    font-size: 13px;
+    color: var(--layer8d-text-dark);
+}
+
+.layer8d-table-simple th {
+    color: var(--layer8d-text-medium);
+    font-weight: 600;
+}
+
+.secscan-ref-select {
+    cursor: pointer;
+}

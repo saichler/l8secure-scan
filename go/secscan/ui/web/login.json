@@ -1,0 +1,17 @@
+{
+    "login": {
+        "appTitle": "Layer 8 Secure Scan",
+        "appDescription": "Container Image Vulnerability Management",
+        "authEndpoint": "/auth",
+        "redirectUrl": "/app.html",
+        "showRememberMe": true,
+        "showRegister": false,
+        "sessionTimeout": 30,
+        "tfaEnabled": true
+    },
+    "app": {
+        "dateFormat": "mm/dd/yyyy",
+        "apiPrefix": "/scan",
+        "healthPath": "/0/Health"
+    }
+}

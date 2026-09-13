@@ -1,0 +1,260 @@
+<!--
+© 2025 Sharon Aicler (saichler@gmail.com)
+
+Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Layer 8 Secure Scan</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <!-- Shared Theme (load first) -->
+    <link rel="stylesheet" href="l8ui/shared/layer8d-theme-tokens.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8d-theme.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8d-animations.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8d-scrollbar.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8-print.css">
+    <!-- Generic Section Layout (shared by all modules) -->
+    <link rel="stylesheet" href="l8ui/shared/layer8-section-layout.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8-section-responsive.css">
+    <link rel="stylesheet" href="css/base-core.css">
+    <link rel="stylesheet" href="css/components-modals.css">
+    <link rel="stylesheet" href="css/components-misc.css">
+    <link rel="stylesheet" href="css/responsive.css">
+    <!-- SecScan Module Styles -->
+    <link rel="stylesheet" href="secscan/secscan.css">
+    <!-- Component Styles -->
+    <link rel="stylesheet" href="l8ui/edit_table/layer8d-table.css">
+    <link rel="stylesheet" href="l8ui/chart/layer8d-chart.css">
+    <link rel="stylesheet" href="l8ui/dashboard/layer8d-widget.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8-view-switcher.css">
+    <!-- SYS Module Styles -->
+    <link rel="stylesheet" href="l8ui/sys/l8sys.css">
+    <link rel="stylesheet" href="l8ui/sys/security/l8security-password-strength.css">
+    <link rel="stylesheet" href="l8ui/sys/health/l8health.css">
+    <link rel="stylesheet" href="l8ui/sys/modules/l8sys-modules.css">
+    <link rel="stylesheet" href="l8ui/sys/logs/l8logs.css">
+    <!-- Toggle Tree Component -->
+    <link rel="stylesheet" href="l8ui/shared/layer8d-toggle-tree.css">
+    <!-- Popup Component -->
+    <link rel="stylesheet" href="l8ui/popup/layer8d-popup.css">
+    <link rel="stylesheet" href="l8ui/popup/layer8d-popup-forms.css">
+    <link rel="stylesheet" href="l8ui/shared/layer8d-form-fields.css">
+    <link rel="stylesheet" href="l8ui/popup/layer8d-popup-inline-table.css">
+    <link rel="stylesheet" href="l8ui/popup/layer8d-popup-content.css">
+    <!-- Reference Picker Component -->
+    <link rel="stylesheet" href="l8ui/reference_picker/layer8d-reference-picker.css">
+    <!-- Input Formatter Component (colorCode field on ImageCategory) -->
+    <link rel="stylesheet" href="l8ui/input_formatters/layer8d-input-formatter.css">
+    <!-- Notification Component -->
+    <link rel="stylesheet" href="l8ui/notification/layer8d-notification.css">
+    <!-- Shared L8Events & L8Notify Component Styles (EventsServiceRequired) -->
+    <link rel="stylesheet" href="l8ui/events/l8events.css">
+    <link rel="stylesheet" href="l8ui/notify/l8notify-notification.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <img src="l8ui/images/logo.gif" alt="Layer 8 Secure Scan Logo" class="header-logo">
+                <div class="header-title">
+                    <h1>Layer 8 Secure Scan</h1>
+                    <p class="header-subtitle">Container Image Vulnerability Management</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="powered-by-header">
+                    <span>Powered by</span>
+                    <img src="l8ui/images/Layer8Logo.gif" alt="Layer 8 Ecosystem" class="layer8-header-logo">
+                    <span class="layer8-header-text">Layer 8 Ecosystem</span>
+                </div>
+                <div class="user-menu">
+                    <span class="username">User</span>
+                    <button class="logout-btn" onclick="logout()">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Sidebar -->
+        <nav class="sidebar">
+            <ul class="nav-menu">
+                <li><a href="#" data-section="vulnmgmt" class="nav-link active">
+                    <span class="nav-icon">&#x1F6E1;&#xFE0F;</span>
+                    <span>Vulnerability Management</span>
+                </a></li>
+                <li id="admin-nav-item"><a href="#" data-section="admin" class="nav-link">
+                    <span class="nav-icon">&#x2699;&#xFE0F;</span>
+                    <span>Administration</span>
+                </a></li>
+                <li><a href="#" data-section="system" class="nav-link">
+                    <span class="nav-icon">&#x1F527;</span>
+                    <span>System</span>
+                </a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <div id="content-area"></div>
+        </main>
+    </div>
+
+    <!-- Popup Root -->
+    <div id="layer8d-popup-root"></div>
+
+    <script src="l8ui/shared/layer8d-router.js"></script>
+    <script src="js/sections.js"></script>
+    <script src="js/app.js"></script>
+    <!-- Shared Scripts (load first, in order) -->
+    <script src="l8ui/shared/layer8d-theme-switcher.js"></script>
+    <script src="l8ui/shared/layer8d-config.js"></script>
+    <script src="l8ui/shared/layer8d-websocket.js"></script>
+    <script src="l8ui/shared/layer8d-utils.js"></script>
+    <script src="l8ui/shared/layer8d-renderers.js"></script>
+    <script src="l8ui/shared/layer8d-reference-registry.js"></script>
+    <script src="l8ui/shared/layer8d-portal-switcher.js"></script>
+    <!-- Factory Components (load before module scripts) -->
+    <script src="l8ui/shared/layer8-query-builder.js"></script>
+    <script src="l8ui/shared/layer8-enum-factory.js"></script>
+    <script src="l8ui/shared/layer8-ref-factory.js"></script>
+    <script src="l8ui/shared/layer8-column-factory.js"></script>
+    <script src="l8ui/shared/layer8-form-factory.js"></script>
+    <script src="l8ui/shared/layer8-form-factory-presets.js"></script>
+    <script src="l8ui/shared/layer8-svg-factory.js"></script>
+    <script src="l8ui/shared/layer8d-module-config-factory.js"></script>
+    <script src="l8ui/shared/layer8-section-generator.js"></script>
+    <!-- Shared L8Events & L8Notify Enums (load before module scripts) -->
+    <script src="l8ui/events/l8events-enums.js"></script>
+    <script src="l8ui/events/l8events-category-enums.js"></script>
+    <script src="l8ui/events/l8events-state-actions.js"></script>
+    <script src="l8ui/events/l8events-alarm-table.js"></script>
+    <script src="l8ui/events/l8events-alarm-detail.js"></script>
+    <script src="l8ui/notify/l8notify-enums.js"></script>
+    <!-- SecScan Reference Registry -->
+    <script src="js/reference-registry-secscan.js"></script>
+    <!-- Notification Component (load before forms) -->
+    <script src="l8ui/notification/layer8d-notification.js"></script>
+    <!-- Input Formatter Component (load in order, before forms) -->
+    <script src="l8ui/shared/layer8-field-parsers.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter-utils.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter-masks.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter-types-validators.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter-types.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter-core.js"></script>
+    <script src="l8ui/input_formatters/layer8d-input-formatter.js"></script>
+    <!-- Forms Component (load in order) -->
+    <script src="l8ui/shared/layer8-format-display.js"></script>
+    <script src="l8ui/shared/layer8-form-chips.js"></script>
+    <script src="l8ui/shared/layer8-inline-table-state.js"></script>
+    <script src="l8ui/shared/layer8-period-selector.js"></script>
+    <script src="l8ui/shared/layer8-reference-config-resolver.js"></script>
+    <script src="l8ui/shared/layer8d-forms-fields.js"></script>
+    <script src="l8ui/shared/layer8d-forms-fields-ext.js"></script>
+    <script src="l8ui/shared/layer8d-forms-data.js"></script>
+    <script src="l8ui/shared/layer8d-forms-pickers.js"></script>
+    <script src="l8ui/shared/layer8d-forms-modal.js"></script>
+    <script src="l8ui/shared/layer8d-forms.js"></script>
+    <!-- Popup Component -->
+    <script src="l8ui/popup/layer8d-popup.js"></script>
+    <!-- Reference Picker Component (load in order) -->
+    <script src="l8ui/reference_picker/layer8d-reference-picker-utils.js"></script>
+    <script src="l8ui/reference_picker/layer8d-reference-picker-data.js"></script>
+    <script src="l8ui/reference_picker/layer8d-reference-picker-render.js"></script>
+    <script src="l8ui/reference_picker/layer8d-reference-picker-events.js"></script>
+    <script src="l8ui/reference_picker/layer8d-reference-picker-core.js"></script>
+    <script src="l8ui/reference_picker/layer8d-reference-picker.js"></script>
+    <!-- Layer8DTable Component (load in order) -->
+    <script src="l8ui/edit_table/layer8d-table-core.js"></script>
+    <script src="l8ui/edit_table/layer8d-table-data.js"></script>
+    <script src="l8ui/edit_table/layer8d-table-render.js"></script>
+    <script src="l8ui/edit_table/layer8d-table-events.js"></script>
+    <script src="l8ui/edit_table/layer8d-table-filter.js"></script>
+    <script src="l8ui/edit_table/layer8d-table.js"></script>
+    <!-- Export Components (CSV only used; excel/pdf inert-safe if bundled by export-helper) -->
+    <script src="l8ui/shared/layer8-csv-export.js"></script>
+    <script src="l8ui/shared/layer8-excel-export.js"></script>
+    <script src="l8ui/shared/layer8-pdf-export.js"></script>
+    <script src="l8ui/shared/layer8-export-helper.js"></script>
+    <!-- Data Source & View Factory -->
+    <script src="l8ui/shared/layer8d-data-source.js"></script>
+    <script src="l8ui/shared/layer8d-view-factory.js"></script>
+    <script src="l8ui/shared/layer8-view-switcher.js"></script>
+    <!-- Chart Component (severity bar chart, §11.1) -->
+    <script src="l8ui/chart/layer8d-chart-core.js"></script>
+    <script src="l8ui/chart/layer8d-chart-bar.js"></script>
+    <script src="l8ui/chart/layer8d-chart-line.js"></script>
+    <script src="l8ui/chart/layer8d-chart-pie.js"></script>
+    <!-- Dashboard Widget Component (KPI strip) -->
+    <script src="l8ui/dashboard/layer8d-widget.js"></script>
+    <!-- Shared Module Abstractions -->
+    <script src="l8ui/shared/layer8d-permission-filter.js"></script>
+    <script src="l8ui/shared/layer8d-service-registry.js"></script>
+    <script src="l8ui/shared/layer8d-module-crud.js"></script>
+    <script src="l8ui/shared/layer8d-module-navigation.js"></script>
+    <script src="l8ui/shared/layer8d-toggle-tree.js"></script>
+    <script src="l8ui/shared/layer8d-module-filter.js"></script>
+    <script src="l8ui/shared/layer8-module-factory-core.js"></script>
+    <script src="l8ui/shared/layer8d-module-factory.js"></script>
+    <!-- SecScan Module: vulnmgmt (Image Groups, Categories, Scan History) -->
+    <script src="secscan/secscan-session.js"></script>
+    <script src="secscan/secscan-config.js"></script>
+    <script src="secscan/secscan-section-config.js"></script>
+    <script src="secscan/vulnmgmt/category-cache.js"></script>
+    <script src="secscan/vulnmgmt/trend-utils.js"></script>
+    <script src="secscan/vulnmgmt/groups-enums.js"></script>
+    <script src="secscan/vulnmgmt/groups-columns.js"></script>
+    <script src="secscan/vulnmgmt/groups-forms.js"></script>
+    <script src="secscan/vulnmgmt/categories-enums.js"></script>
+    <script src="secscan/vulnmgmt/categories-columns.js"></script>
+    <script src="secscan/vulnmgmt/categories-forms.js"></script>
+    <script src="secscan/vulnmgmt/scanjobs-enums.js"></script>
+    <script src="secscan/vulnmgmt/scanjobs-columns.js"></script>
+    <script src="secscan/vulnmgmt/scanjobs-forms.js"></script>
+    <!-- SecScan Module: admin (Customers) -->
+    <script src="secscan/admin/customers-enums.js"></script>
+    <script src="secscan/admin/customers-columns.js"></script>
+    <script src="secscan/admin/customers-forms.js"></script>
+    <!-- SecScan custom behavior (group detail, vulnerability detail, add images, csv report, scan selected, dashboard KPIs) -->
+    <script src="secscan/vulnmgmt/vuln-detail.js"></script>
+    <script src="secscan/vulnmgmt/group-detail.js"></script>
+    <script src="secscan/vulnmgmt/add-category.js"></script>
+    <script src="secscan/vulnmgmt/add-images.js"></script>
+    <script src="secscan/vulnmgmt/export-csv-report.js"></script>
+    <script src="secscan/vulnmgmt/dashboard-kpis.js"></script>
+    <script src="secscan/secscan-init.js"></script>
+    <!-- SYS Module -->
+    <script src="l8ui/sys/l8sys-config.js"></script>
+    <script src="l8ui/sys/health/l8health.js"></script>
+    <script src="l8ui/sys/security/l8security-enums.js"></script>
+    <script src="l8ui/sys/security/l8security-columns.js"></script>
+    <script src="l8ui/sys/security/l8security-forms.js"></script>
+    <script src="l8ui/sys/security/l8security.js"></script>
+    <script src="l8ui/sys/security/l8security-password-strength.js"></script>
+    <script src="l8ui/sys/security/l8security-change-password.js"></script>
+    <script src="l8ui/sys/security/l8security-users-crud.js"></script>
+    <script src="l8ui/sys/security/l8security-roles-crud.js"></script>
+    <script src="l8ui/sys/security/l8security-credentials-crud.js"></script>
+    <script src="l8ui/sys/security/l8security-events-enums.js"></script>
+    <script src="l8ui/sys/security/l8security-events-columns.js"></script>
+    <script src="l8ui/sys/modules/l8sys-dependency-graph.js"></script>
+    <script src="l8ui/sys/modules/l8sys-modules-map.js"></script>
+    <script src="l8ui/sys/modules/l8sys-modules.js"></script>
+    <script src="l8ui/sys/logs/l8logs.js"></script>
+    <script src="l8ui/sys/l8sys-init.js"></script>
+</body>
+</html>
