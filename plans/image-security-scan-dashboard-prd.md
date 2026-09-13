@@ -112,12 +112,10 @@ Note there is no `customerId` field in the request — the handler derives it se
 
 This keeps every hook fast and non-blocking (`MainPackageMinimal` — no network I/O inside a synchronous CRUD path); rows appear in the group detail list immediately with a "Resolving…" build date.
 
-**Phase B — asynchronous (`secscan-scanner`, "resolver" loop, separate from the Trivy scan loop in §13):**
+**Phase B — asynchronous (`secscan-scanner`'s "resolver" loop — one configuration of the shared poll-claim-dispatch harness described in §13, alongside the Trivy scan loop):**
 
-1. Polls (`select * from ImageRef where buildDate=0`) via `vnic`.
-2. For each, queries the registry (credentials already present on the pod) for the image's manifest/config `Created` timestamp — recommend `go-containerregistry` (`crane`)'s pure-Go client so the scanner pod needs no Docker daemon.
-3. `vnic.Put`s the resolved `buildDate` back to the `secscan` backend.
-4. The `ImageRefServiceCallback.After()` hook (PUT, `buildDate` transitions from `0` to a real value) recomputes the parent `ImageGroup.latestBuildDate`/`imageRefCount` cache — kept centralized in the callback rather than duplicated in the scanner, per `Duplication Prevention`.
+1. The harness polls `select * from ImageRef where buildDate=0` via `vnic`; for each match, the `work` function queries the registry (credentials already present on the pod) for the image's manifest/config `Created` timestamp — recommend `go-containerregistry` (`crane`)'s pure-Go client so the scanner pod needs no Docker daemon — then `vnic.Put`s the resolved `buildDate` back to the `secscan` backend.
+2. The `ImageRefServiceCallback.After()` hook (PUT, `buildDate` transitions from `0` to a real value) recomputes the parent `ImageGroup.latestBuildDate`/`imageRefCount` cache — kept centralized in the callback rather than duplicated in the scanner, per `Duplication Prevention`.
 
 If the registry lookup fails (bad ref, no access, image deleted), the resolver sets a `scanError` and leaves `buildDate=0`; the UI surfaces this the same way a failed scan is surfaced (§11.3), so a user isn't left wondering why a row is stuck "Resolving…".
 
@@ -194,7 +192,9 @@ message ImageGroup {
   string category_id     = 4;   // ref ImageCategory by ID, empty = Uncategorized
   int32  image_ref_count = 5;   // cached
   int64  latest_build_date = 6; // cached, for default sort
-  l8api.AuditInfo audit_info = 7;
+  VulnerabilityCounts newest_counts = 7; // cached: total_counts of the newest scanned ImageRef in this group
+  VulnerabilityCounts oldest_counts = 8; // cached: total_counts of the oldest scanned ImageRef in this group
+  l8api.AuditInfo audit_info = 9;
 }
 message ImageGroupList {
   repeated ImageGroup list = 1;
@@ -253,6 +253,8 @@ message ScanJobList {
 
 Generation: `cd proto && ./make-bindings.sh` (never hand-edit `.pb.go`), per `ProtobufRules`.
 
+`ImageGroup.newest_counts`/`oldest_counts` extend the same denormalized-cache pattern already used for `image_ref_count`/`latest_build_date` — they exist specifically to give every consumer that needs "the newest/oldest scanned image ref's counts" (the CSV report, the dashboard table, the Group Detail Trend panel — §10/§11.1/§11.3) **one** already-computed, already-fetched source to read, instead of each of those three independently re-deriving "find the newest/oldest scanned `ImageRef` in this group" from scratch. See §9 for the single hook that maintains them.
+
 ## 8. Prime Object Classification
 
 | Type | Classification | Reasoning |
@@ -291,13 +293,15 @@ Module `secscan`, single `ServiceArea = 60` for all `secscan`-owned services (`M
 
 Per `SingleOwnerDatabaseTable`, the ORM for the five Prime-Object-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `ScanJob`) is activated in exactly one process (`secscan` backend/`main`). `VulnRep` and `ImgRefAdd` are stateless action handlers hosted in that same process — they have no table/ORM of their own, they read and write the already-owned tables directly, so no second-owner question arises for them. The `secscan-scanner` worker never activates a local ORM for any of these — it reaches them exclusively through `vnic` RPC (`vnic.Get/Post/Put`).
 
+**Shared helper — `customer_id` derivation (one place, not three).** `ImageCategory`, `ImageRef`, and `ScanJob` all need the identical "read the caller's own scope, stamp `customer_id`, ignore any client-supplied value" step (§4). Rather than each `ServiceCallback` re-implementing it, it lives in exactly one function — `secscan/common.DeriveCustomerID(resources ifs.IResources) string`, reading the same identity the deny rule's `${associateIds}` placeholder resolves from — and every `Before()` hook below that needs a `customer_id` calls it (`Duplication Prevention` "Second Instance Rule": extract on second use, not third).
+
 `ServiceCallback` responsibilities (`Before`/`After` hooks only, per `MainPackageMinimal` / `FrameworkInterfaceBoundaries`):
 
-- `CustomerServiceCallback`: `common.GenerateID` on POST. (`Customer` rows are created only by `opsadmin`, which is not customer-scoped, so no `customer_id`-derivation concern applies here.)
-- `ImageCategoryServiceCallback`: `Before()` on POST sets `customer_id` from the authenticated caller's own scope (never trusts a client-supplied value, per §4), `common.GenerateID`.
+- `CustomerServiceCallback`: `common.GenerateID` on POST. (`Customer` rows are created only by `opsadmin`, which is not customer-scoped, so `DeriveCustomerID` doesn't apply here.)
+- `ImageCategoryServiceCallback`: `Before()` on POST — `customer_id = common.DeriveCustomerID(resources)`, `common.GenerateID`.
 - `ImageGroupServiceCallback`: `common.GenerateID` on POST (used internally by the `ImageRef` ingestion flow, not directly by end users — there is no user-facing "Add Group" form; groups only ever emerge from ingestion, category reassignment happens via `PUT`). `customer_id` is copied from the triggering `ImageRef`'s already-derived value, never client-supplied.
-- `ImageRefServiceCallback`: `Before()` on POST calls the shared ingestion helper (derive `customer_id` from the authenticated caller, parse ref, dedupe, find-or-create group, `common.GenerateID`, set `PENDING`, §6.1 Phase A) — used both by a direct single-entity POST and, internally, by the `ImgRefAdd` bulk handler. `After()` on PUT recomputes the parent `ImageGroup` rollup cache whenever `buildDate` resolves from `0` to a real value (§6.1 Phase B) or a scan completes (§13).
-- `ScanJobServiceCallback`: `Before()` on POST — set `customer_id` from the authenticated caller's own scope (never client-supplied, §4), validate all `image_ref_ids` actually belong to that `customer_id` (cross-object validation is app logic, not row security, so it belongs here — this catches an attempt to queue a scan against another tenant's `imageRefId` even though the id itself isn't guessable), `common.GenerateID`, set `status = QUEUED`, `totalImages = len(imageRefIds)`, `requestedAt = now`. No scanning happens inline in the callback (`MainPackageMinimal` — business/long-running work does not belong in a synchronous CRUD hook); the `secscan-scanner` worker polls for queued jobs (§13).
+- `ImageRefServiceCallback`: `Before()` on POST calls the shared ingestion helper (`customer_id = common.DeriveCustomerID(resources)`, parse ref, dedupe, find-or-create group, `common.GenerateID`, set `PENDING`, §6.1 Phase A) — used both by a direct single-entity POST and, internally, by the `ImgRefAdd` bulk handler. `After()` on PUT recomputes the parent `ImageGroup` rollup cache (`imageRefCount`, `latestBuildDate`, and — on scan completion — `newestCounts`/`oldestCounts`, §7) whenever `buildDate` resolves from `0` to a real value (§6.1 Phase B) or a scan completes (§13).
+- `ScanJobServiceCallback`: `Before()` on POST — `customer_id = common.DeriveCustomerID(resources)`, validate all `image_ref_ids` actually belong to that `customer_id` (cross-object validation is app logic, not row security, so it belongs here — this catches an attempt to queue a scan against another tenant's `imageRefId` even though the id itself isn't guessable), `common.GenerateID`, set `status = QUEUED`, `totalImages = len(imageRefIds)`, `requestedAt = now`. No scanning happens inline in the callback (`MainPackageMinimal` — business/long-running work does not belong in a synchronous CRUD hook); the `secscan-scanner` worker polls for queued jobs (§13).
 
 Types registered in `go/secscan/ui/main.go` via `introspect.AddPrimaryKeyDecorator` + `registry.Register`, per `Maintainability`.
 
@@ -314,12 +318,14 @@ Ask requirement 10 is a **cross-group summary report** (one row per `ImageGroup`
 |---|---|
 | `Name` | `ImageGroup.image_name` |
 | `Category` | `ImageCategory.name` for `ImageGroup.category_id` (blank → `Uncategorized`) |
-| `Newest Critical` / `Newest High` / `Newest Medium` / `Newest Low` | `total_counts` of the **newest scanned** `ImageRef` in the group (by `build_date`) — 4 columns |
-| `Oldest Critical` / `Oldest High` / `Oldest Medium` / `Oldest Low` | `total_counts` of the **oldest scanned** `ImageRef` in the group — 4 columns |
-| `Reduction % Critical` / `Reduction % High` / `Reduction % Medium` / `Reduction % Low` | Per severity: `(oldest.sev − newest.sev) / oldest.sev × 100` — 4 columns |
+| `Newest Critical` / `Newest High` / `Newest Medium` / `Newest Low` | `ImageGroup.newest_counts` (cached, §7) — 4 columns |
+| `Oldest Critical` / `Oldest High` / `Oldest Medium` / `Oldest Low` | `ImageGroup.oldest_counts` (cached, §7) — 4 columns |
+| `Reduction % Critical` / `Reduction % High` / `Reduction % Medium` / `Reduction % Low` | Per severity, from the two cached count structs above: `(oldest.sev − newest.sev) / oldest.sev × 100` — 4 columns |
 | `Image Refs` | All image refs in the group, **descending by build date**, one cell, semicolon-separated: `repoName:tag (buildDate ISO-8601)` |
 
-15 columns total. A cell is blank (not `0`) when the newest/oldest image ref hasn't completed a scan yet — counts and reduction % are only meaningful once `scanStatus = COMPLETED`. A given `Reduction %` cell is `N/A` when: the group has fewer than 2 scanned image refs, the newest and oldest resolve to the same image ref (single data point), or `oldest.sev = 0` for that severity (division by zero — a 0→N vulnerability increase isn't expressible as a "reduction" percentage; it is reported as `N/A`, not a negative/undefined number).
+15 columns total. Note `VulnRep` never re-derives "which `ImageRef` is newest/oldest" itself — that lookup happens exactly once, in the `ImageRefServiceCallback.After()` hook that maintains `ImageGroup.newest_counts`/`oldest_counts` (§9); the report just reads those two cached structs per group.
+
+A cell is blank (not `0`) when the newest/oldest image ref hasn't completed a scan yet — counts and reduction % are only meaningful once `scanStatus = COMPLETED`. **Canonical `N/A` rule set for `Reduction %`** (the one spec every consumer of this figure — this report, the dashboard's Trend indicator §11.1, the Group Detail Trend panel §11.3 — must apply identically, since each renders it independently from the same two cached structs): `N/A` when the group has fewer than 2 scanned image refs, when the newest and oldest resolve to the same image ref (single data point), or when `oldest.sev = 0` for that severity (division by zero — a 0→N vulnerability increase isn't expressible as a "reduction" percentage; it is reported as `N/A`, not a negative/undefined number).
 
 UI entry point: an **"Export CSV Report"** button on the main Image Groups view, calling `VulnRep` directly. Note this is *in addition to*, not instead of, the generic per-row export button `Layer8CsvExport` auto-attaches to the Image Groups table's pagination bar (raw `ImageGroup` rows) — the two are visually distinct ("Export CSV Report" vs. the default "Export") so a user can't confuse the aggregated report with a plain table dump (§12.2).
 
@@ -347,7 +353,7 @@ Layer8ModuleConfigFactory.create({
 ### 11.1 Dashboard / Image Groups (default view)
 
 - KPI strip (`Layer8DWidget.renderEnhancedStatsGrid`): total image groups, total pending scans, total critical CVEs (customer-wide), groups with no scan yet.
-- `Layer8DTable` over `ImageGroup`, columns: Name, Category (enum-style tag via `col.custom`), Image Ref Count, Newest Build Date, Newest Critical/High/Medium/Low (from cached rollup, refreshed on scan completion). **Design call:** the main list table shows only the *newest* image's counts, not the full newest+oldest+per-severity-reduction breakdown from the CSV (§10) — 15 columns in a row-scanning list table would hurt usability. The full breakdown is one click away (Group Detail's Trend panel, §11.3) and in the CSV export; the list table adds a compact "Trend" indicator column (e.g. ▼12% / ▲/flat, tooltip shows the four per-severity percentages) as a hint before drilling in. Sortable/filterable, server-side.
+- `Layer8DTable` over `ImageGroup`, columns: Name, Category (enum-style tag via `col.custom`), Image Ref Count, Newest Build Date, Newest Critical/High/Medium/Low (`col.custom` reading `ImageGroup.newest_counts` directly off the already-fetched row — no extra query, no client-side re-derivation). **Design call:** the main list table shows only the *newest* image's counts, not the full newest+oldest+per-severity-reduction breakdown from the CSV (§10) — 15 columns in a row-scanning list table would hurt usability. The full breakdown is one click away (Group Detail's Trend panel, §11.3) and in the CSV export; the list table adds a compact "Trend" indicator column whose per-severity percentages are computed client-side from the row's own `newest_counts`/`oldest_counts` fields, applying the canonical `N/A` rule set from §10 (e.g. ▼12% / ▲/flat, tooltip shows the four per-severity percentages). Sortable/filterable, server-side.
 - Toolbar: **Add Images** button (bulk paste, §11.5) and **Export CSV Report** button (posts to `VulnRep`, downloads response).
 - Row click → opens **Image Group Detail** (large `Layer8DPopup`).
 - A small bar chart (`Layer8DChart`, `viewConfig.chartType:'bar'`, `categoryField:'imageName'`, using latest counts) gives an at-a-glance severity comparison across groups — the only `Layer8DViewFactory` chart type used in this PRD; other view types (kanban/calendar/gantt/tree/wizard) are not applicable (see §12).
@@ -361,7 +367,7 @@ Layer8ModuleConfigFactory.create({
 
 Opened via `Layer8DPopup.show({size:'xlarge', ...})`:
 
-- Header: group name, editable Category reference field (saves via `PUT /60/ImgGroup`), and a **Trend panel**: Newest vs. Oldest scanned image's Critical/High/Medium/Low counts side by side, plus the per-severity reduction % (same figures as the CSV's 15-column breakdown, §10) — this is where the full detail the list table intentionally omits is available at a glance.
+- Header: group name, editable Category reference field (saves via `PUT /60/ImgGroup`), and a **Trend panel**: Newest vs. Oldest scanned image's Critical/High/Medium/Low counts side by side, plus the per-severity reduction %. This panel reads `newest_counts`/`oldest_counts` straight off the same `ImageGroup` record already fetched to render this popup's header — no separate query, no separate computation of "which image ref is newest/oldest" (that's centralized once, §7/§9); only the trivial reduction-% arithmetic is (re-)done here, applying the same canonical `N/A` rule set as §10.
 - `Layer8DTable` over `ImageRef`, `baseWhereClause: "imageGroupId='<id>'"`, default `sort-by buildDate desc` (requirement 5). Columns: checkbox (multi-select — table's native row-selection, not a `showActions` CRUD column), Repo, Tag, Build Date (renders "Resolving…" while `buildDate=0` and no `scanError`, or an error indicator if resolution failed — §6.1 Phase B), Scan Status (`createStatusRenderer`), Total C/H/M/L, Distinct C/H/M/L.
 - Toolbar button **"Scan Selected"**: enabled when ≥1 row selected; `POST /60/ScanJob` with `{imageRefIds: [...selected]}` (no `customerId` in the body — derived server-side, §4). On success, `Layer8DNotification.success('Scan job queued')`; selected rows' status flips to `SCANNING` once the scanner claims the job (poll/refresh, or WebSocket notification push per `l8web`'s notification channel — reuse, don't build a new transport).
 - Row click on an `ImageRef` → **Vulnerability Detail** popup (§11.4).
@@ -468,20 +474,27 @@ First implementation phase creates `app.html` and `m/app.html` with every "Yes" 
 
 ## 13. Trivy Scanning Pipeline
 
-New binary: `secscan-scanner` (not a UI/backend-DB process — a stateless worker pool, per `l8utils` bounded worker pool with fan-out/fan-in). It runs **two** independent poll loops against the same registry-credentialed pod: the metadata **resolver** loop (§6.1 Phase B, fills in `buildDate` for newly-added refs) and the **scan** loop below (Trivy). They share the registry client but are otherwise unrelated — a ref can sit "Resolving…" and later, once resolved, separately be selected by a user for scanning.
+New binary: `secscan-scanner` (not a UI/backend-DB process — a stateless worker pool, per `l8utils` bounded worker pool with fan-out/fan-in).
+
+**Shared poll-claim-dispatch harness (one implementation, two configurations — `Duplication Prevention` "Second Instance Rule").** Both loops `secscan-scanner` runs — the metadata **resolver** loop (§6.1 Phase B, fills in `buildDate` for newly-added refs) and the **scan** loop below (Trivy) — are structurally identical: poll a table on an interval for rows matching a status predicate, transactionally claim a matched row (`l8services` 2-phase-commit, so multiple `secscan-scanner` replicas never double-process the same row), dispatch claimed rows to a bounded worker pool, and write the result back over `vnic`. Rather than writing that harness twice, it is one generic internal helper, e.g. `pollworker.Run(query L8Query, claim ClaimFunc, work WorkFunc)`, and each loop is just one configuration of it:
+
+- **Resolver loop**: `query = "select * from ImageRef where buildDate=0"`; `claim` = no-op (a metadata lookup is idempotent, safe to retry, no exclusive claim needed); `work` = the registry lookup in §6.1 Phase B.
+- **Scan loop** (§13.1 below): `query = "select * from ScanJob where status='JOB_STATUS_QUEUED'"`; `claim` = the transactional `QUEUED → RUNNING` update; `work` = the Trivy invocation.
+
+They also share one registry client (credentials, §18).
 
 ### 13.1 Scan loop
 
-1. Polls (`select * from ScanJob where status='JOB_STATUS_QUEUED'`) on an interval via `vnic`.
-2. Claims a job (transactional status update `QUEUED → RUNNING`, guarded so multiple `secscan-scanner` replicas never double-process the same job — uses `l8services` 2-phase-commit transaction support, not a hand-rolled lock).
-3. For each `imageRefId` in the job (worker pool, bounded concurrency): fetch the `ImageRef` (`vnic.Get`), set its `scanStatus = SCANNING` (`vnic.Put`), shell out to `trivy image --format json <repoName>:<tag or digest>`.
-4. Parse Trivy's JSON output:
+Configures the shared harness above with the `ScanJob`/`QUEUED` query and claim transition; per claimed job:
+
+1. For each `imageRefId` in the job (worker pool, bounded concurrency, this is the harness's `work` function): fetch the `ImageRef` (`vnic.Get`), set its `scanStatus = SCANNING` (`vnic.Put`), shell out to `trivy image --format json <repoName>:<tag or digest>`.
+2. Parse Trivy's JSON output:
    - `total_counts`: count every `Vulnerability` entry per `Severity` (raw finding count, duplicates across packages included).
    - `distinct_counts`: count unique `VulnerabilityID` (CVE) per `Severity`.
    - Map each finding to the `Vulnerability` embedded message (`cve_id`, `severity`, `package_name`, `installed_version`, `fixed_version`, `title`).
-5. `vnic.Put` the completed `ImageRef` (`scanStatus=COMPLETED`, counts, vulnerabilities, `lastScannedAt=now`) — or `scanStatus=FAILED` + `scanError` on Trivy failure.
-6. Updates `ScanJob.completedImages`/`failedImages`; when all images are done, sets `status = COMPLETED` (or `PARTIAL` if any failed, or `FAILED` if all failed) and `completedAt`.
-7. `ImageGroup.latestBuildDate` cache and dashboard rollups refresh from the just-updated `ImageRef` (`After` hook on `ImageRef` PUT, or read live at query time — either is acceptable; recommend read-live to avoid a second cache to keep consistent, per `Duplication Prevention`/simplicity bias).
+3. `vnic.Put` the completed `ImageRef` (`scanStatus=COMPLETED`, counts, vulnerabilities, `lastScannedAt=now`) — or `scanStatus=FAILED` + `scanError` on Trivy failure.
+4. Updates `ScanJob.completedImages`/`failedImages`; when all images are done, sets `status = COMPLETED` (or `PARTIAL` if any failed, or `FAILED` if all failed) and `completedAt`.
+5. The `ImageRefServiceCallback.After()` hook (§9) recomputes the parent `ImageGroup`'s cached `latestBuildDate`, and — since this `ImageRef` just transitioned to `COMPLETED` — its `newestCounts`/`oldestCounts` (§7) by comparing this ref's `buildDate` against the group's current newest/oldest scanned refs. This is the **one** place that comparison happens; the dashboard, CSV report, and Trend panel all just read the resulting cached fields (§10, §11.1, §11.3) rather than each re-deriving it.
 
 Per `SingleOwnerDatabaseTable`, `secscan-scanner` never activates a local ORM for `ImageRef`/`ScanJob` — every read/write above is a remote `vnic` call to the `secscan` backend, which is the sole ORM owner. This also lets `secscan-scanner` run as a horizontally-scaled `Deployment` with multiple replicas.
 
@@ -536,7 +549,7 @@ Phased per `MockDataRules`:
 2. **Categories** — 4–6 per customer (e.g. Production, Staging, Base Images, Deprecated) via Security-API-adjacent `ImgCat` POSTs.
 3. **Image Groups** — 15–20 per customer (varied `imageName`s), with a mix of categorized/uncategorized.
 4. **Image Refs** — 3–8 per group, varied `repoName`/`tag`/`buildDate` (descending order verifiable), most `PENDING`.
-5. **Scan results** — simulate completed scans for ~half of image refs per group: generate `Vulnerability` entries with a realistic severity distribution (few Critical, more High/Medium, most Low), derive `total_counts`/`distinct_counts`, set `scanStatus=COMPLETED`.
+5. **Scan results** — simulate completed scans for ~half of image refs per group: generate `Vulnerability` entries with a realistic severity distribution (few Critical, more High/Medium, most Low), derive `total_counts`/`distinct_counts`, set `scanStatus=COMPLETED`. Mock data generation bypasses `secscan-scanner`, so it must also set the parent `ImageGroup`'s `newest_counts`/`oldest_counts` (§7) directly for every group that gets at least one simulated completed scan — otherwise the dashboard/CSV/Trend panel (§10, §11.1, §11.3) would show blank figures for seeded data even though real usage would have them populated by the `After()` hook (§9).
 6. **Scan Jobs** — a handful of historical `ScanJob` records (`COMPLETED`/`FAILED`/`PARTIAL`) referencing the scanned image refs, for Scan History view content.
 7. **Security users** — one `customer`-role user per customer (`associateIds=[customerId]`), one `opsadmin` user, provisioned via Security API (`/73/users`), never a project-owned endpoint (`SecurityRules`).
 
@@ -593,7 +606,8 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 
 - Bulk ingestion (`ImgRefAdd`): paste a mixed batch (valid new refs, an exact duplicate, an unparseable line) and assert the `created`/`skipped`/`errors` split is correct; assert correct `imageName` derivation and group reuse across differing repo hosts/tags.
 - Metadata resolution: seed `ImageRef`s with `buildDate=0`, run the resolver loop against a fixture/mock registry client, assert `buildDate` populates and the parent `ImageGroup` rollup cache updates; assert a registry lookup failure sets `scanError` and leaves the row visibly "Resolving…/Failed", never silently stuck with no explanation.
-- Scan pipeline: seed a `ScanJob`, run `secscan-scanner` against a fixture/mock Trivy JSON payload (or real Trivy against a known small test image), assert `total_counts`/`distinct_counts` and `ImageRef` status transitions.
+- Scan pipeline: seed a `ScanJob`, run `secscan-scanner` against a fixture/mock Trivy JSON payload (or real Trivy against a known small test image), assert `total_counts`/`distinct_counts` and `ImageRef` status transitions; assert `ImageGroup.newest_counts`/`oldest_counts` update correctly, including the case where a newly-completed scan's `buildDate` is *older* than the group's current cached oldest (cache must move, not just append).
+- Cache/reduction consistency: seed a group with ≥3 scanned image refs at different build dates, assert `VulnRep`'s CSV, the dashboard's Trend indicator, and the Group Detail Trend panel all report identical newest/oldest counts and reduction percentages for that group (single source of truth, §7/§9/§10) — including each of the three `N/A` edge cases applied the same way in all three places.
 - Row-level scoping: query as a `customer` user, assert zero cross-tenant leakage; query as `opsadmin`, assert full visibility including `Customer` management.
 - Write-side tenant isolation: as customer A, attempt `ScanJob`/`ImgRefAdd`/`ImageCategory` writes referencing customer B's `imageRefId`s or targeting customer B's data; assert the server-derived `customer_id` (not any client-supplied value) is what's persisted, and cross-tenant `imageRefId` references in a `ScanJob` request are rejected (§4, §9).
 - CSV report: assert the full 15-column set, sort order of the `Image Refs` cell, and per-severity reduction-% math (including the "<2 scanned refs", "single data point", and "oldest severity count = 0" → `N/A` edge cases).
@@ -611,6 +625,7 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 - [x] `PrdL8uiIncludesAudit` section present (§12).
 - [x] No `l8secure` import anywhere; all AAA via `ISecurityProvider`/Security API (§4, §14).
 - [x] `SingleOwnerDatabaseTable` respected — only `secscan` backend owns the ORM for its five Prime-Object-backed services; `secscan-scanner` is vnic-only (§9, §13).
+- [x] `PlanRequirements` duplication audit performed — three behavioral patterns that would otherwise be reimplemented 2-3× each are named as single shared abstractions instead: `common.DeriveCustomerID` (§9, used by `ImageCategory`/`ImageRef`/`ScanJob` callbacks), the `pollworker` poll-claim-dispatch harness (§13, used by both the resolver and scan loops), and the `ImageGroup.newest_counts`/`oldest_counts` cache maintained in exactly one hook (§7/§9, read — never re-derived — by the CSV report, dashboard, and Trend panel).
 - [x] Multi-tenancy is enforced on **both** read and write paths: the deny rule scopes GET results (`SecurityConfigStructure`); every write endpoint that would otherwise accept a client-supplied `customerId` derives it server-side from the authenticated caller instead (§4, §9) — closing the gap a read-only deny rule leaves open.
 
 ## 21. Traceability Matrix
