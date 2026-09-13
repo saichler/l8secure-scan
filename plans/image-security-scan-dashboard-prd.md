@@ -128,9 +128,10 @@ Module: `secscan`. File: `proto/secscan.proto`. Follows `ProtobufRules` (enum ze
 ```protobuf
 syntax = "proto3";
 package secscan;
-option go_package = "github.com/saichler/l8secure-scan/go/types/secscan";
+option go_package = "./types/secscan";
 
-import "l8api.proto";
+import "api.proto";
+import "l8common.proto";
 
 enum ScanStatus {
   SCAN_STATUS_UNSPECIFIED = 0;
@@ -165,22 +166,22 @@ message VulnerabilityCounts {
 }
 
 message Customer {
-  string customer_id     = 1;
-  string name             = 2;
-  bool   is_active        = 3;
-  l8api.AuditInfo audit_info = 4;
+  string customer_id        = 1;
+  string name                = 2;
+  bool   is_active            = 3;
+  l8common.AuditInfo audit_info = 4;
 }
 message CustomerList {
-  repeated Customer list  = 1;
+  repeated Customer list    = 1;
   l8api.L8MetaData metadata = 2;
 }
 
 message ImageCategory {
-  string category_id     = 1;
-  string customer_id     = 2;
-  string name             = 3;
-  string color_code       = 4;
-  l8api.AuditInfo audit_info = 5;
+  string category_id        = 1;
+  string customer_id        = 2;
+  string name                = 3;
+  string color_code          = 4;
+  l8common.AuditInfo audit_info = 5;
 }
 message ImageCategoryList {
   repeated ImageCategory list = 1;
@@ -196,10 +197,19 @@ message ImageGroup {
   int64  latest_build_date = 6; // cached, for default sort
   VulnerabilityCounts newest_counts = 7; // cached: total_counts of the newest scanned ImageRef in this group
   VulnerabilityCounts oldest_counts = 8; // cached: total_counts of the oldest scanned ImageRef in this group
-  l8api.AuditInfo audit_info = 9;
+  l8common.AuditInfo audit_info = 9;
+  // Phase 2 addition (see PROGRESS.md): count of ImageRef rows in this
+  // group with scan_status=COMPLETED. The canonical Reduction % "N/A"
+  // rule below needs "fewer than 2 scanned image refs" / "newest and
+  // oldest resolve to the same image ref" -- neither is derivable from
+  // newest_counts/oldest_counts alone (two different refs can coincide on
+  // identical counts), and every consumer of this figure (CSV, dashboard,
+  // Group Detail Trend panel) only ever has these cached ImageGroup
+  // fields to work with, never the underlying ImageRef rows.
+  int32 scanned_ref_count = 10;
 }
 message ImageGroupList {
-  repeated ImageGroup list = 1;
+  repeated ImageGroup list  = 1;
   l8api.L8MetaData metadata = 2;
 }
 
@@ -208,15 +218,15 @@ message ImageRef {
   string customer_id        = 2;
   string image_group_id     = 3;  // ref ImageGroup by ID
   string repo_name          = 4;
-  string tag                = 5;
-  string digest              = 6;
-  int64  build_date          = 7;
-  ScanStatus scan_status      = 8;
-  int64  last_scanned_at      = 9;
+  string tag                 = 5;
+  string digest               = 6;
+  int64  build_date           = 7;
+  ScanStatus scan_status       = 8;
+  int64  last_scanned_at       = 9;
   VulnerabilityCounts total_counts    = 10; // sum-up
   VulnerabilityCounts distinct_counts = 11; // distinct CVEs
-  string scan_error           = 12;
-  l8api.AuditInfo audit_info  = 13;
+  string scan_error            = 12;
+  l8common.AuditInfo audit_info = 13;
 }
 message ImageRefList {
   repeated ImageRef list    = 1;
@@ -228,14 +238,14 @@ message ImageRefList {
 // every finding; also the Prime Object a future cross-image "which
 // images have CVE-X" query would target.
 message Cve {
-  string cve_id           = 1;  // natural key, e.g. "CVE-2023-1234" — no generated ID needed
-  Severity severity        = 2;
-  string title             = 3;
-  l8api.AuditInfo audit_info = 4;
+  string cve_id              = 1;  // natural key, e.g. "CVE-2023-1234" — no generated ID needed
+  Severity severity            = 2;
+  string title                 = 3;
+  l8common.AuditInfo audit_info = 4;
 }
 message CveList {
-  repeated Cve list         = 1;
-  l8api.L8MetaData metadata = 2;
+  repeated Cve list          = 1;
+  l8api.L8MetaData metadata  = 2;
 }
 
 // ImageRefCve is one Trivy finding: "package P in ImageRef R was found
@@ -244,16 +254,16 @@ message CveList {
 // server-side-filtered/sorted/paginated root-type query, never an
 // embedded repeated field.
 message ImageRefCve {
-  string image_ref_cve_id   = 1;
-  string customer_id        = 2;  // denormalized from the parent ImageRef, for row scoping
-  string image_ref_id       = 3;  // ref ImageRef by ID
-  string cve_id             = 4;  // ref Cve by ID
-  Severity severity         = 5;  // denormalized from Cve at write time — this ORM has no join, so sort/filter needs it local
-  string package_name       = 6;
-  string installed_version  = 7;
-  string fixed_version      = 8;
-  string title              = 9;  // denormalized from Cve — the finding list needs no lookup to render
-  l8api.AuditInfo audit_info = 10;
+  string image_ref_cve_id    = 1;
+  string customer_id         = 2;  // denormalized from the parent ImageRef, for row scoping
+  string image_ref_id        = 3;  // ref ImageRef by ID
+  string cve_id               = 4;  // ref Cve by ID
+  Severity severity            = 5;  // denormalized from Cve at write time — this ORM has no join, so sort/filter needs it local
+  string package_name         = 6;
+  string installed_version    = 7;
+  string fixed_version        = 8;
+  string title                 = 9;  // denormalized from Cve — the finding list needs no lookup to render
+  l8common.AuditInfo audit_info = 10;
 }
 message ImageRefCveList {
   repeated ImageRefCve list = 1;
@@ -261,23 +271,50 @@ message ImageRefCveList {
 }
 
 message ScanJob {
-  string scan_job_id       = 1;
-  string customer_id       = 2;
+  string scan_job_id         = 1;
+  string customer_id         = 2;
   repeated string image_ref_ids = 3;
-  JobStatus status         = 4;
-  int32  total_images      = 5;
-  int32  completed_images  = 6;
-  int32  failed_images     = 7;
-  int64  requested_at      = 8;
-  int64  completed_at      = 9;
-  string requested_by      = 10;
-  l8api.AuditInfo audit_info = 11;
+  JobStatus status              = 4;
+  int32  total_images           = 5;
+  int32  completed_images       = 6;
+  int32  failed_images           = 7;
+  int64  requested_at            = 8;
+  int64  completed_at            = 9;
+  string requested_by            = 10;
+  l8common.AuditInfo audit_info  = 11;
 }
 message ScanJobList {
   repeated ScanJob list      = 1;
   l8api.L8MetaData metadata = 2;
 }
+
+// --- Action-service wire types (Phase 2, §6.1/§10 — not CRUD entities,
+// no List wrapper, never persisted via the ORM). ---
+
+// ImgRefAdd: bulk free-text image-reference ingestion (§6.1).
+message ImgRefAddRequest {
+  string customer_id           = 1;
+  repeated string image_ref_strings = 2;
+}
+message ImgRefAddItem {
+  string ref    = 1;
+  string reason = 2;
+}
+message ImgRefAddResponse {
+  repeated string created      = 1;
+  repeated ImgRefAddItem skipped = 2;
+  repeated ImgRefAddItem errors  = 3;
+}
+
+// VulnRep: cross-group CSV vulnerability report (§10). customer_id is
+// required — see §10 for why automatic row-scoping cannot reach a custom
+// action-service handler. Response reuses l8api.L8CsvExportResponse.
+message VulnRepRequest {
+  string customer_id = 1;
+}
 ```
+
+This block is kept in sync with the real `proto/secscan.proto` as later phases extend it — it is the file's actual current content, not a snapshot frozen at Phase 1 (see `plans/PROGRESS.md` for why `l8api.AuditInfo`/`import "l8api.proto"`/the fully-qualified `go_package` in earlier drafts of this section were wrong, and for the `scanned_ref_count`/action-service-message additions made in Phase 2).
 
 Generation: `cd proto && ./make-bindings.sh` (never hand-edit `.pb.go`), per `ProtobufRules`.
 
@@ -346,8 +383,8 @@ Types registered in `go/secscan/ui/main.go` via `introspect.AddPrimaryKeyDecorat
 
 Ask requirement 10 is a **cross-group summary report** (one row per `ImageGroup`), not a per-entity dump. The generic, built-in `Layer8CsvExport` (`Layer8CsvExport`) exports one row per raw entity with its own columns and cannot compute cross-row aggregates (reduction %) or a formatted nested list column — so it is **not reused** for this report; a dedicated action-service is added instead, following the same "custom action beyond plain CRUD" precedent as `L8ImportTemplate`'s `/ImprtExec`/`/ImprtXfer` endpoints (`DataImportSystem`).
 
-- Endpoint: `POST /scan/60/VulnRep` — no request body needed beyond auth (report is generated for the caller's scoped customer via the standard row-level deny rule); returns `text/csv`.
-- Server-side generation (Go), one row per `ImageGroup` visible to the caller:
+- Endpoint: `POST /scan/60/VulnRep`, request `{ "customerId": "..." }` (set by the UI from the logged-in session, same trusted-client-value pattern as every other write in this PRD — §4/§9); response is a JSON body carrying the CSV text as a string field, `VulnRepResponse{ csv_data, filename, row_count }`, mirroring `l8api.L8CsvExportResponse` (the only real, working precedent in this framework for a generated-CSV response — verified: no custom action-service anywhere in the ecosystem writes a raw `text/csv` HTTP body; `CsvExport`'s own `Post` handler returns CSV content as a string field of a protobuf response, and the client is responsible for turning that into a downloadable file, exactly as it already must for the generic `Layer8CsvExport` button). **Why a request body is required after all, contradicting an earlier draft of this line:** verified against `l8services/go/services/manager/ServiceManager.go` — row-level `ScopeView` filtering is applied in exactly two places (`Handle`/`TransactionHandle`), both *after* a service handler's `Get`/`Post` returns, using the caller's `AAAId` carried on the inbound `ifs.Message`. `IServiceHandler.Post(elems ifs.IElements, vnic ifs.IVNic)` — what `VulnRep` actually implements, per the `CsvExport` precedent below — never receives that `Message`, and `IVNic`/`IElements` expose no caller-identity accessor at all; a direct in-process `handler.Get(...)` call from inside `VulnRep.Post` (the same shortcut `CsvExport.Post` itself uses) bypasses `ServiceManager.Handle` entirely, so it would run *unscoped* — it would return every customer's `ImageGroup` rows, not just the caller's. There is no framework extension point to recover the caller's identity inside a custom action-service handler (same underlying gap as §4/§9's already-accepted `ServiceCallback` limitation, now confirmed to extend to `IServiceHandler` too). Accepted fix, consistent with this PRD's existing v1 trust boundary: `VulnRep` takes an explicit trusted `customerId` and filters its own `select * from ImageGroup where customerId='<given>'` query explicitly, rather than relying on automatic caller-derived scoping that cannot actually reach this code path.
+- Server-side generation (Go), modeled directly on `l8services/go/services/csvexport/CsvExport.go` (`IServiceHandler`, not `IServiceCallback` — a `VulnRep` struct implementing `Post`/stubbed `Put`/`Patch`/`Delete`/`Get`, registered via `ifs.NewServiceLevelAgreement` + `web.New`/`AddEndpoint`, not `common.ActivateService`), one row per `ImageGroup` matching the request's `customerId`:
 
 | Column | Source |
 |---|---|
@@ -360,7 +397,7 @@ Ask requirement 10 is a **cross-group summary report** (one row per `ImageGroup`
 
 15 columns total. Note `VulnRep` never re-derives "which `ImageRef` is newest/oldest" itself — that lookup happens exactly once, in the `ImageRefServiceCallback.After()` hook that maintains `ImageGroup.newest_counts`/`oldest_counts` (§9); the report just reads those two cached structs per group.
 
-A cell is blank (not `0`) when the newest/oldest image ref hasn't completed a scan yet — counts and reduction % are only meaningful once `scanStatus = COMPLETED`. **Canonical `N/A` rule set for `Reduction %`** (the one spec every consumer of this figure — this report, the dashboard's Trend indicator §11.1, the Group Detail Trend panel §11.3 — must apply identically, since each renders it independently from the same two cached structs): `N/A` when the group has fewer than 2 scanned image refs, when the newest and oldest resolve to the same image ref (single data point), or when `oldest.sev = 0` for that severity (division by zero — a 0→N vulnerability increase isn't expressible as a "reduction" percentage; it is reported as `N/A`, not a negative/undefined number).
+A cell is blank (not `0`) when the newest/oldest image ref hasn't completed a scan yet — counts and reduction % are only meaningful once `scanStatus = COMPLETED`. **Canonical `N/A` rule set for `Reduction %`** (the one spec every consumer of this figure — this report, the dashboard's Trend indicator §11.1, the Group Detail Trend panel §11.3 — must apply identically, since each renders it independently from the same cached `ImageGroup` fields): `N/A` when `scanned_ref_count < 2` (covers both "fewer than 2 scanned image refs" and "newest and oldest resolve to the same image ref" — by construction in the one hook that maintains this cache, §9, those two conditions always coincide, so `scanned_ref_count` alone is sufficient; verified/added in Phase 2 — see `plans/PROGRESS.md` for why `newest_counts`/`oldest_counts` alone can't distinguish "the same single ref" from "two different refs that happen to have identical counts"), or when `oldest.sev = 0` for that severity (division by zero — a 0→N vulnerability increase isn't expressible as a "reduction" percentage; it is reported as `N/A`, not a negative/undefined number).
 
 UI entry point: an **"Export CSV Report"** button on the main Image Groups view, calling `VulnRep` directly. Note this is *in addition to*, not instead of, the generic per-row export button `Layer8CsvExport` auto-attaches to the Image Groups table's pagination bar (raw `ImageGroup` rows) — the two are visually distinct ("Export CSV Report" vs. the default "Export") so a user can't confuse the aggregated report with a plain table dump (§12.2).
 
@@ -540,7 +577,7 @@ Trivy needs its own vulnerability database (`trivy-db`, several hundred MB) refr
 
 ## 14. Security Config
 
-`go/secure/plugin/secscan/secscan.json`, per `SecurityConfigStructure` (canonical reference: `l8secure/go/secure/plugin/*/*.json`):
+**Corrected in Phase 2 (see `plans/PROGRESS.md` for the full verification trail) — read this before using the illustrative JSON below.** The security config lives at `../l8secure/go/secure/plugin/secscan/secscan.json` — inside the sibling `l8secure` repo, not this one (confirmed against every real project: `alm.json`, `erp.json`, `phy.json`, etc. all live under `l8secure/go/secure/plugin/<name>/`). It is never read as JSON at runtime — `l8common.CreateResources` loads a **compiled Go plugin** (`plugin.Open("/var/loader.so")`), built once via `l8secure/go/secure/plugin/build.sh secscan`. The illustrative shape below is simplified/aspirational and does **not** match the real `L8SecureConfig` proto structure a working file needs (verified against the real `alm.json`) — real differences include: `credentials.<group>` needs `id`/`name`/a nested `creds.<credName>.{aside,yside,zside}` map, not a flat `{aside,yside,zside}`; each `roles.<role>` needs `roleId`/`roleName` alongside `rules`; each rule needs its own `ruleId` field matching its map key; `sysconfig` is `{dataStoreConfig:{name,type}, timeSeriesStoreConfig, webConfig:{endPointPrefix,webPort,...certs}, vnetPort, logConfig.vnetPort, ...}`, not the flat `{dataStoreType,dataStoreName,webPort}` shown below; and `users` need the full `L8User` field set (`userId` not `userName`, `password:{hash,solt}` as an object, plus `accountStatus`/`fa`/`tfa`/etc.), not just `userName`/`password`/`associateIds`/`roles`. The actual file this project uses was written directly against the real shape (verified by `protojson`-unmarshaling it against `L8SecureConfig`) — this section's JSON is kept for a quick read of the *intended* roles/rules/users, not as something to copy verbatim.
 
 ```json
 {

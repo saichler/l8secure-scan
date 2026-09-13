@@ -1,11 +1,112 @@
+# github.com/google/uuid v1.6.0
+## explicit
+github.com/google/uuid
+# github.com/gorilla/websocket v1.5.3
+## explicit; go 1.12
+github.com/gorilla/websocket
+# github.com/lib/pq v1.12.3
+## explicit; go 1.21
+github.com/lib/pq
+github.com/lib/pq/internal/pgpass
+github.com/lib/pq/internal/pgservice
+github.com/lib/pq/internal/pqsql
+github.com/lib/pq/internal/pqtime
+github.com/lib/pq/internal/pqutil
+github.com/lib/pq/internal/proto
+github.com/lib/pq/oid
+github.com/lib/pq/pqerror
+github.com/lib/pq/scram
+# github.com/saichler/l8bus v0.0.0-20260524152159-cc0b5c210821
+## explicit
+github.com/saichler/l8bus/go/overlay/health
+github.com/saichler/l8bus/go/overlay/metrics
+github.com/saichler/l8bus/go/overlay/plugins
+github.com/saichler/l8bus/go/overlay/protocol
+github.com/saichler/l8bus/go/overlay/vnic
 # github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2
 ## explicit
+github.com/saichler/l8common/go/common
 github.com/saichler/l8common/go/types/l8common
+# github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc
+## explicit
+github.com/saichler/l8events/go/services
+# github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
+## explicit
+github.com/saichler/l8logfusion/go/types/l8logf
+# github.com/saichler/l8orm v0.0.0-20260613145442-8ef992eb7bcb
+## explicit
+github.com/saichler/l8orm/go/orm/common
+github.com/saichler/l8orm/go/orm/convert
+github.com/saichler/l8orm/go/orm/persist
+github.com/saichler/l8orm/go/orm/plugins/postgres
+github.com/saichler/l8orm/go/orm/stmt
+github.com/saichler/l8orm/go/types/l8orms
+# github.com/saichler/l8ql v0.0.0-20260613133019-24b364d1e3d8
+## explicit
+github.com/saichler/l8ql/go/gsql/interpreter
+github.com/saichler/l8ql/go/gsql/interpreter/comparators
+github.com/saichler/l8ql/go/gsql/parser
+# github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2
+## explicit
+github.com/saichler/l8reflect/go/reflect/cloning
+github.com/saichler/l8reflect/go/reflect/helping
+github.com/saichler/l8reflect/go/reflect/introspecting
+github.com/saichler/l8reflect/go/reflect/properties
+github.com/saichler/l8reflect/go/reflect/updating
+# github.com/saichler/l8services v0.0.0-20260730135741-1fa4b3846015
+## explicit
+github.com/saichler/l8services/go/services/base
+github.com/saichler/l8services/go/services/csvexport
+github.com/saichler/l8services/go/services/dataimport
+github.com/saichler/l8services/go/services/dcache
+github.com/saichler/l8services/go/services/filestore
+github.com/saichler/l8services/go/services/manager
+github.com/saichler/l8services/go/services/recovery
+github.com/saichler/l8services/go/services/replication
+github.com/saichler/l8services/go/services/transaction/requests
+github.com/saichler/l8services/go/services/transaction/states
+# github.com/saichler/l8srlz v0.0.0-20260322124809-505a0d08f95d
+## explicit
+github.com/saichler/l8srlz/go/serialize/object
 # github.com/saichler/l8types v0.0.0-20260809125345-ae67316219ee
 ## explicit
+github.com/saichler/l8types/go/aes
+github.com/saichler/l8types/go/ifs
+github.com/saichler/l8types/go/nets
+github.com/saichler/l8types/go/sec
 github.com/saichler/l8types/go/types/l8api
+github.com/saichler/l8types/go/types/l8events
+github.com/saichler/l8types/go/types/l8health
+github.com/saichler/l8types/go/types/l8notify
+github.com/saichler/l8types/go/types/l8reflect
+github.com/saichler/l8types/go/types/l8services
+github.com/saichler/l8types/go/types/l8sysconfig
+github.com/saichler/l8types/go/types/l8system
+github.com/saichler/l8types/go/types/l8web
+# github.com/saichler/l8utils v0.0.0-20260907163422-1397ebb1eafe
+## explicit
+github.com/saichler/l8utils/go/utils/cache
+github.com/saichler/l8utils/go/utils/events
+github.com/saichler/l8utils/go/utils/integration
+github.com/saichler/l8utils/go/utils/ipsegment
+github.com/saichler/l8utils/go/utils/logger
+github.com/saichler/l8utils/go/utils/maps
+github.com/saichler/l8utils/go/utils/notify
+github.com/saichler/l8utils/go/utils/queues
+github.com/saichler/l8utils/go/utils/registry
+github.com/saichler/l8utils/go/utils/requests
+github.com/saichler/l8utils/go/utils/resources
+github.com/saichler/l8utils/go/utils/strings
+github.com/saichler/l8utils/go/utils/web
+# github.com/saichler/l8web v0.0.0-20260726182518-5097b8cf253e
+## explicit
+github.com/saichler/l8web/go/web/server
+# golang.org/x/sys v0.48.0
+## explicit; go 1.26.0
+golang.org/x/sys/unix
 # google.golang.org/protobuf v1.36.12
 ## explicit; go 1.23
+google.golang.org/protobuf/encoding/protojson
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
@@ -13,6 +114,7 @@ google.golang.org/protobuf/internal/descopts
 google.golang.org/protobuf/internal/detrand
 google.golang.org/protobuf/internal/editiondefaults
 google.golang.org/protobuf/internal/encoding/defval
+google.golang.org/protobuf/internal/encoding/json
 google.golang.org/protobuf/internal/encoding/messageset
 google.golang.org/protobuf/internal/encoding/tag
 google.golang.org/protobuf/internal/encoding/text

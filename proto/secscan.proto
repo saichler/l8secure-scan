@@ -70,6 +70,15 @@ message ImageGroup {
   VulnerabilityCounts newest_counts = 7; // cached: total_counts of the newest scanned ImageRef in this group
   VulnerabilityCounts oldest_counts = 8; // cached: total_counts of the oldest scanned ImageRef in this group
   l8common.AuditInfo audit_info = 9;
+  // Phase 2 addition (see PROGRESS.md): count of ImageRef rows in this
+  // group with scan_status=COMPLETED. The canonical Reduction % "N/A"
+  // rule (PRD §10) needs "fewer than 2 scanned image refs" /  "newest and
+  // oldest resolve to the same image ref" -- neither is derivable from
+  // newest_counts/oldest_counts alone (two different refs can coincide on
+  // identical counts), and every consumer of this figure (CSV, dashboard,
+  // Group Detail Trend panel) only ever has these cached ImageGroup
+  // fields to work with, never the underlying ImageRef rows.
+  int32 scanned_ref_count = 10;
 }
 message ImageGroupList {
   repeated ImageGroup list  = 1;
@@ -149,4 +158,29 @@ message ScanJob {
 message ScanJobList {
   repeated ScanJob list      = 1;
   l8api.L8MetaData metadata = 2;
+}
+
+// --- Action-service wire types (Phase 2, §6.1/§10 — not CRUD entities,
+// no List wrapper, never persisted via the ORM). ---
+
+// ImgRefAdd: bulk free-text image-reference ingestion (§6.1).
+message ImgRefAddRequest {
+  string customer_id           = 1;
+  repeated string image_ref_strings = 2;
+}
+message ImgRefAddItem {
+  string ref    = 1;
+  string reason = 2;
+}
+message ImgRefAddResponse {
+  repeated string created      = 1;
+  repeated ImgRefAddItem skipped = 2;
+  repeated ImgRefAddItem errors  = 3;
+}
+
+// VulnRep: cross-group CSV vulnerability report (§10). customer_id is
+// required -- see PRD §10 for why automatic row-scoping cannot reach a
+// custom action-service handler. Response reuses l8api.L8CsvExportResponse.
+message VulnRepRequest {
+  string customer_id = 1;
 }
