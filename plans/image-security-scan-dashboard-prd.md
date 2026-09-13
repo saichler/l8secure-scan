@@ -513,7 +513,7 @@ New binary: `secscan-scanner` (not a UI/backend-DB process — a stateless worke
 **Shared poll-claim-dispatch harness (one implementation, two configurations — `Duplication Prevention` "Second Instance Rule").** Both loops `secscan-scanner` runs — the metadata **resolver** loop (§6.1 Phase B, fills in `buildDate` for newly-added refs) and the **scan** loop below (Trivy) — are structurally identical: poll a table on an interval for rows matching a status predicate, mark a matched row claimed, dispatch claimed rows to a bounded worker pool, and write the result back over `vnic`. Rather than writing that harness twice, it is one generic internal helper, e.g. `pollworker.Run(query L8Query, claim ClaimFunc, work WorkFunc)`, and each loop is just one configuration of it:
 
 - **Resolver loop**: `query = "select * from ImageRef where buildDate=0"`; `claim` = no-op (a metadata lookup is idempotent, safe to retry, no exclusive claim needed); `work` = the registry lookup in §6.1 Phase B.
-- **Scan loop** (§13.1 below): `query = "select * from ScanJob where status='JOB_STATUS_QUEUED'"`; `claim` = the `QUEUED → RUNNING` update; `work` = the Trivy invocation.
+- **Scan loop** (§13.1 below): `query = "select * from ScanJob where status=1"` (`1` = `JOB_STATUS_QUEUED` — L8Query enum comparisons are bare integers, never quoted enum names: verified against `l8ql`'s parser, `Equal.go`'s `eqIntMatcher` runs `strconv.Atoi` on the right-hand operand for an enum-kind field, so a quoted name silently never matches; real precedent across `../l8erp`/`../l8alarms` confirms `status=<int>` is the only working form); `claim` = the `QUEUED → RUNNING` update; `work` = the Trivy invocation.
 
 They also share one registry client (credentials, §18).
 
