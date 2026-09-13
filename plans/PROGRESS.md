@@ -8,7 +8,7 @@
 | 4. Desktop UI | not started | |
 | 5. Mobile UI | not started | |
 | 6. Mock Data | not started | |
-| 7. Deployment | not started | |
+| 7. Deployment | not started | **User instruction (2026-09-13, not yet acted on):** when building the `secscan-security`/`secscan-postgres` base images (PRD §16), use `../l8secure/build-images.sh secscan` — do not hand-roll a Dockerfile-only build. Verified what it does: `l8secure/build-images.sh <project>` runs `security/build.sh <project>` (copies `go/secure/plugin/build.go`/`Loader.go`/`<project>/<project>.json` — i.e. the `secscan.json` written in Phase 2 — into `security/`, then `docker build --build-arg FILE=<project> -t saichler/<project>-security:latest .`, which is what actually compiles the security plugin into the image) then `postgres/build.sh <project>` (`docker build --build-arg NAME=saichler/<project>-security:latest -t saichler/<project>-postgres:latest`, layering on top of the just-built security image). So `./build-images.sh secscan` from `../l8secure/` produces both required base images in one step, with the real compiled plugin baked in — this is also the only way to get PRD §14/§16's plugin-build step done at all (Phase 2 only wrote the source JSON; nothing has compiled/run it yet). Needed for KIND testing per the user, and by extension for `build-all-images.sh`/`deploy.sh` in general. |
 | 8. Testing | not started | |
 | 9. Verification | not started | |
 
