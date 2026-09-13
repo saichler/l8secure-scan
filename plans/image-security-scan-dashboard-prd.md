@@ -203,16 +203,6 @@ message ImageGroupList {
   l8api.L8MetaData metadata = 2;
 }
 
-message Vulnerability {
-  string vulnerability_id  = 1;
-  string cve_id            = 2;
-  Severity severity        = 3;
-  string package_name      = 4;
-  string installed_version = 5;
-  string fixed_version     = 6;
-  string title             = 7;
-}
-
 message ImageRef {
   string image_ref_id       = 1;
   string customer_id        = 2;
@@ -225,12 +215,48 @@ message ImageRef {
   int64  last_scanned_at      = 9;
   VulnerabilityCounts total_counts    = 10; // sum-up
   VulnerabilityCounts distinct_counts = 11; // distinct CVEs
-  repeated Vulnerability vulnerabilities = 12; // embedded child, populated post-scan
-  string scan_error           = 13;
-  l8api.AuditInfo audit_info  = 14;
+  string scan_error           = 12;
+  l8api.AuditInfo audit_info  = 13;
 }
 message ImageRefList {
   repeated ImageRef list    = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+// Cve is a global catalog entity — not customer-scoped, no deny rule.
+// Normalizes each CVE's canonical data once instead of repeating it on
+// every finding; also the Prime Object a future cross-image "which
+// images have CVE-X" query would target.
+message Cve {
+  string cve_id           = 1;  // natural key, e.g. "CVE-2023-1234" — no generated ID needed
+  Severity severity        = 2;
+  string title             = 3;
+  l8api.AuditInfo audit_info = 4;
+}
+message CveList {
+  repeated Cve list         = 1;
+  l8api.L8MetaData metadata = 2;
+}
+
+// ImageRefCve is one Trivy finding: "package P in ImageRef R was found
+// vulnerable to Cve C." A Prime Object (§8) — despite its two parent
+// FKs — specifically so a single image's finding list is a normal,
+// server-side-filtered/sorted/paginated root-type query, never an
+// embedded repeated field.
+message ImageRefCve {
+  string image_ref_cve_id   = 1;
+  string customer_id        = 2;  // denormalized from the parent ImageRef, for row scoping
+  string image_ref_id       = 3;  // ref ImageRef by ID
+  string cve_id             = 4;  // ref Cve by ID
+  Severity severity         = 5;  // denormalized from Cve at write time — this ORM has no join, so sort/filter needs it local
+  string package_name       = 6;
+  string installed_version  = 7;
+  string fixed_version      = 8;
+  string title              = 9;  // denormalized from Cve — the finding list needs no lookup to render
+  l8api.AuditInfo audit_info = 10;
+}
+message ImageRefCveList {
+  repeated ImageRefCve list = 1;
   l8api.L8MetaData metadata = 2;
 }
 
@@ -265,19 +291,22 @@ Generation: `cd proto && ./make-bindings.sh` (never hand-edit `.pb.go`), per `Pr
 | `ImageCategory` | Prime Object | Independent CRUD lifecycle, managed directly from the app (ask requirement 9), referenced by ID from `ImageGroup`. |
 | `ImageGroup` | Prime Object | Independent identity (`customerId`+`imageName`), own lifecycle (category reassignment, rollup cache updates) independent of any single `ImageRef`, queried/listed directly as the dashboard's primary table. |
 | `ImageRef` | **Prime Object** (flagged deviation — see below) | Referenced by ID from `ImageGroup` via `image_group_id`. |
-| `Vulnerability` | Embedded child (`repeated` field of `ImageRef`) | No independent lifecycle, never queried outside its parent image, always displayed as a whole scan result — the textbook embedded-child case (`PrimeObjectReferences` Rule 1). |
+| `Cve` | Prime Object | Global catalog entity — independent of any image, own lifecycle (catalog entries can be enriched independent of any scan), directly queryable, no parent at all. Not customer-scoped. |
+| `ImageRefCve` | **Prime Object** (flagged deviation, same reasoning as `ImageRef` — see below) | References both `ImageRef` and `Cve` by ID; verified — not just argued — necessary (see below). |
 | `ScanJob` | Prime Object | Independent identity/lifecycle (`QUEUED→RUNNING→COMPLETED/FAILED`), directly queryable (scan history), audit trail of who requested what. |
 
 **Why `ImageRef` is a Prime Object despite carrying a required `image_group_id`.** The guide's heuristic for "not a Prime Object" ("has a required `parent_id` field", e.g. order lines) assumes the child's only mutation path is through editing the parent record. `ImageRef` fails that assumption on all four independence tests:
 
 1. **Independence** — an `ImageRef` is individually addressable by registry digest; it has meaning without the UI ever opening its group.
-2. **Own lifecycle** — its `scanStatus`/`totalCounts`/`distinctCounts`/`vulnerabilities` are mutated **asynchronously by the scanner backend**, completely outside of any edit to `ImageGroup`. A plain embedded child only changes when its parent form is saved; this one changes on its own.
+2. **Own lifecycle** — its `scanStatus`/`totalCounts`/`distinctCounts` are mutated **asynchronously by the scanner backend**, completely outside of any edit to `ImageGroup`. A plain embedded child only changes when its parent form is saved; this one changes on its own.
 3. **Direct query need** — the UI needs server-side sortable/paginated/filterable queries ("sorted descending by build date", "select multiple for scan", eventually "all pending scans for this customer") — exactly what `Layer8DTable` + `baseWhereClause=imageGroupId=X` gives for free, and what an embedded `repeated` field (fetched only as part of the whole parent payload, unbounded, unpaginated) does not.
 4. **No parent-derived identity** — its identity is the repo/tag/digest tuple, not a position within the parent's list.
 
 Given the async, backend-driven lifecycle and the mandatory paginated/sortable/multi-select table UI, treating `ImageRef` as an embedded `repeated ImageGroup.image_refs` field would force fetching an unbounded list on every group view and would not support `Layer8DTablePaginationMetadata`/sorting. It is therefore modeled as a Prime Object with `image_group_id` as an ID-only reference (never a struct ref, per `PrimeObjectReferences` Rule 2), gets its own service/columns/forms/reference-registry entry, and its own mock data ID slice.
 
-`Vulnerability`, by contrast, has no independent lifecycle and is always read as part of one `ImageRef`'s scan result — it stays embedded.
+**Why `ImageRefCve` is a Prime Object too — this one verified against the ORM's actual read path, not just argued by analogy.** An earlier draft of this PRD modeled each Trivy finding as an embedded `repeated Vulnerability` field of `ImageRef`. Reading `l8orm`'s actual query-to-SQL translation (`l8orm/go/orm/stmt/QueryToSql.go`) showed that a nested/child table only gets the query's `WHERE`/`ORDER BY`/`LIMIT` applied **when that table is the query's root type** (`Query2Sql`: `if typeName == query.RootType().TypeName`) — a child table is otherwise read via a bare, unfiltered `SELECT` of the *entire* table, with parent-key filtering happening after the fact in Go. So `select * from ImageRef where imageRefId=X` would have pulled **every finding for every image, for every customer** into memory on every single request just to keep the ~50–500 rows for one image. Making `ImageRefCve` a Prime Object turns "this image's findings, sorted Critical→Low" into `select * from ImageRefCve where imageRefId=X sort-by severity desc` — `ImageRefCve` **is** the query's root type there, so the filter and sort are applied in the actual SQL, not after an unbounded read. `Cve` and `ImageRefCve` are referenced only by ID (`cve_id`/`image_ref_id`), never by struct, per `PrimeObjectReferences` Rule 2.
+
+**Project-wide principle this establishes:** any child collection whose volume can grow large (parents × average children) must be modeled as a Prime Object with an ID-only parent reference — never as an embedded `repeated`-struct field, regardless of how naturally it reads as "belongs to one parent." A *singular* (non-repeated) embedded struct like `VulnerabilityCounts` (used 4× in this schema) doesn't need this treatment — same underlying child-table mechanism, but bounded to ~1-2 rows per parent, not hundreds.
 
 ## 9. Service Architecture
 
@@ -289,11 +318,13 @@ Module `secscan`, single `ServiceArea = 60` for all `secscan`-owned services (`M
 | `ImageCategory` | `ImgCat` | 60 | `secscan` backend |
 | `ImageGroup` | `ImgGroup` | 60 | `secscan` backend |
 | `ImageRef` | `ImageRef` | 60 | `secscan` backend |
+| `Cve` | `Cve` | 60 | `secscan` backend (global catalog, not customer-scoped) |
+| `ImageRefCve` | `ImgRefCve` | 60 | `secscan` backend |
 | `ScanJob` | `ScanJob` | 60 | `secscan` backend |
 | CSV report generator | `VulnRep` | 60 | `secscan` backend (POST-only action service, see §10) |
 | Bulk image ingestion | `ImgRefAdd` | 60 | `secscan` backend (POST-only action service, see §6.1) |
 
-Per `SingleOwnerDatabaseTable`, the ORM for the five Prime-Object-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `ScanJob`) is activated in exactly one process (`secscan` backend/`main`). `VulnRep` and `ImgRefAdd` are stateless action handlers hosted in that same process — they have no table/ORM of their own, they read and write the already-owned tables directly, so no second-owner question arises for them. The `secscan-scanner` worker never activates a local ORM for any of these — it reaches them exclusively through `vnic` RPC (`vnic.Get/Post/Put`).
+Per `SingleOwnerDatabaseTable`, the ORM for the seven Prime-Object-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `Cve`, `ImageRefCve`, `ScanJob`) is activated in exactly one process (`secscan` backend/`main`). `VulnRep` and `ImgRefAdd` are stateless action handlers hosted in that same process — they have no table/ORM of their own, they read and write the already-owned tables directly, so no second-owner question arises for them. The `secscan-scanner` worker never activates a local ORM for any of these — it reaches them exclusively through `vnic` RPC (`vnic.Get/Post/Put`).
 
 **`customer_id` is a trusted, client-supplied value everywhere (§4) — not derived or validated server-side.** This was verified against the actual framework source, not assumed: `IServiceCallback.Before()`/`.After()` (`l8types/go/ifs/ServiceLevelAgreement.go`) have no access to the caller's identity, so no `ServiceCallback` in this list can independently confirm "does this `customer_id` belong to whoever is calling." Every `Before()` hook that sets `customer_id` on POST simply takes it from the request body (as the UI populated it from the logged-in user's session, §11) or copies it from an already-trusted parent record — it does not attempt to re-derive or cross-check it against caller identity, because no hook here has the information to do that.
 
@@ -303,6 +334,8 @@ Per `SingleOwnerDatabaseTable`, the ORM for the five Prime-Object-backed service
 - `ImageCategoryServiceCallback`: `Before()` on POST — takes `customer_id` from the request body, `common.GenerateID`.
 - `ImageGroupServiceCallback`: `common.GenerateID` on POST (used internally by the `ImageRef` ingestion flow, not directly by end users — there is no user-facing "Add Group" form; groups only ever emerge from ingestion, category reassignment happens via `PUT`). `customer_id` is copied from the triggering `ImageRef`.
 - `ImageRefServiceCallback`: `Before()` on POST calls the shared ingestion helper (takes `customer_id` from the request, parse ref, dedupe, find-or-create group, `common.GenerateID`, set `PENDING`, §6.1 Phase A) — used both by a direct single-entity POST and, internally, by the `ImgRefAdd` bulk handler. `After()` on PUT recomputes the parent `ImageGroup` rollup cache (`imageRefCount`, `latestBuildDate`, and — on scan completion — `newestCounts`/`oldestCounts`, §7) whenever `buildDate` resolves from `0` to a real value (§6.1 Phase B) or a scan completes (§13).
+- `CveServiceCallback`: no `common.GenerateID` needed — `cve_id` (e.g. `"CVE-2023-1234"`) is a natural key supplied by the scanner's find-or-create logic (§13.1), not generated. Not customer-scoped (§4's row-scoping deny rules don't apply to this service — see §14).
+- `ImageRefCveServiceCallback`: `Before()` on POST — `common.GenerateID`; `customer_id` is copied from the `ImageRef` being processed (not a client-trusted value in the ordinary sense — this row is written only by `secscan-scanner`'s own system identity, §14, never by an end-user session).
 - `ScanJobServiceCallback`: `Before()` on POST — takes `customer_id` from the request body, validates all `image_ref_ids` actually belong to that `customer_id` (a data-integrity sanity check against accidental cross-group mixing in the request, not a security boundary — it only checks internal consistency of the request's own stated `customer_id`, which itself isn't independently verified, §4), `common.GenerateID`, set `status = QUEUED`, `totalImages = len(imageRefIds)`, `requestedAt = now`. No scanning happens inline in the callback (`MainPackageMinimal` — business/long-running work does not belong in a synchronous CRUD hook); the `secscan-scanner` worker polls for queued jobs (§13).
 
 Types registered in `go/secscan/ui/main.go` via `introspect.AddPrimaryKeyDecorator` + `registry.Register`, per `Maintainability`.
@@ -376,10 +409,9 @@ Opened via `Layer8DPopup.show({size:'xlarge', ...})`:
 
 ### 11.4 Vulnerability Detail (per Image Ref)
 
-- Triggered by `select * from ImageRef where imageRefId=X` (whole record incl. embedded `vulnerabilities`, per `L8QueryRules` Rule 2 — detail popups must `select *`).
-- Summary strip: Total and Distinct counts per severity.
-- Read-only list of `Vulnerability` rows, client-sorted by `severity desc` (enum values already rank `CRITICAL=4 → LOW=1`, so a numeric-desc sort produces "Critical→Low" for free, satisfying requirement 8 without a bespoke comparator): CVE ID, Package, Installed Version, Fixed Version, Severity tag, Title.
-- Not a paginated `Layer8DTable` fetch (data already arrived embedded); rendered as a local, non-paginated sortable list to avoid a second network round-trip for data already in hand.
+- Summary strip: `ImageRef.total_counts`/`distinct_counts` per severity (still embedded scalars on `ImageRef` — small, bounded, no §8 concern).
+- Findings list: a standard `Layer8DTable` over `ImageRefCve`, `baseWhereClause: "imageRefId='<id>'"`, default `sort-by severity desc` — enum values already rank `CRITICAL=4 → LOW=1`, so a numeric-desc sort produces "Critical→Low" for free (requirement 8), and because `ImageRefCve` is the query's own root type, this sort/filter is applied in the actual SQL (§8), not after an unbounded read. Columns: CVE ID, Package, Installed Version, Fixed Version, Severity tag, Title — all denormalized directly onto `ImageRefCve` (§7), so no lookup against the `Cve` catalog is needed to render this view.
+- This is now a normal, paginated table fetch like every other list in this app (not a bespoke local-list render) — one less one-off UI pattern to maintain.
 
 ### 11.5 Add Images (bulk ingestion)
 
@@ -493,10 +525,10 @@ Configures the shared harness above with the `ScanJob`/`QUEUED` query and claim 
 
 1. For each `imageRefId` in the job (worker pool, bounded concurrency, this is the harness's `work` function): fetch the `ImageRef` (`vnic.Get`), set its `scanStatus = SCANNING` (`vnic.Put`), shell out to `trivy image --format json <repoName>:<tag or digest>`.
 2. Parse Trivy's JSON output:
-   - `total_counts`: count every `Vulnerability` entry per `Severity` (raw finding count, duplicates across packages included).
-   - `distinct_counts`: count unique `VulnerabilityID` (CVE) per `Severity`.
-   - Map each finding to the `Vulnerability` embedded message (`cve_id`, `severity`, `package_name`, `installed_version`, `fixed_version`, `title`).
-3. `vnic.Put` the completed `ImageRef` (`scanStatus=COMPLETED`, counts, vulnerabilities, `lastScannedAt=now`) — or `scanStatus=FAILED` + `scanError` on Trivy failure.
+   - `total_counts`: count every finding entry per `Severity` (raw finding count, duplicates across packages included) — computed in Go from the parsed JSON, not via an ORM aggregate query.
+   - `distinct_counts`: count unique `VulnerabilityID` (CVE) per `Severity`, same source.
+   - Per finding: find-or-create the `Cve` catalog entry (`vnic.Get` by `cveId`; if absent, `vnic.Post` a new `Cve` with `severity`/`title`) — the CVE-catalog equivalent of the ImageGroup find-or-create in §6.1, same "look up by natural key, create if absent" shape, different concrete type (no Go generics, per `NoGoGenerics` — two small concrete functions, not one parameterized one). Then `vnic.Post` an `ImageRefCve` row (`customerId` from this `ImageRef`, `imageRefId`, `cveId`, `severity`/`packageName`/`installedVersion`/`fixedVersion`/`title` denormalized straight from the same finding — no second lookup against the just-written `Cve`).
+3. `vnic.Put` the completed `ImageRef` (`scanStatus=COMPLETED`, `total_counts`/`distinct_counts`, `lastScannedAt=now`) — or `scanStatus=FAILED` + `scanError` on Trivy failure.
 4. Updates `ScanJob.completedImages`/`failedImages`; when all images are done, sets `status = COMPLETED` (or `PARTIAL` if any failed, or `FAILED` if all failed) and `completedAt`.
 5. The `ImageRefServiceCallback.After()` hook (§9) recomputes the parent `ImageGroup`'s cached `latestBuildDate`, and — since this `ImageRef` just transitioned to `COMPLETED` — its `newestCounts`/`oldestCounts` (§7) by comparing this ref's `buildDate` against the group's current newest/oldest scanned refs. This is the **one** place that comparison happens; the dashboard, CSV report, and Trend panel all just read the resulting cached fields (§10, §11.1, §11.3) rather than each re-deriving it.
 
@@ -522,26 +554,40 @@ Trivy needs its own vulnerability database (`trivy-db`, several hundred MB) refr
         "allow-imageref": { "elemType": "ImageRef", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
         "allow-category": { "elemType": "ImageCategory", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
         "allow-scanjob": { "elemType": "ScanJob", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
+        "allow-imgrefcve": { "elemType": "ImageRefCve", "allowed": true, "actions": {"5": true}, "attributes": {"*": "*"} },
+        "allow-cve": { "elemType": "Cve", "allowed": true, "actions": {"5": true}, "attributes": {"*": "*"} },
         "allow-imgrefadd": { "elemType": "ImgRefAdd", "allowed": true, "actions": {"1": true}, "attributes": {"*": "*"} },
         "allow-vulnrep": { "elemType": "VulnRep", "allowed": true, "actions": {"1": true}, "attributes": {"*": "*"} },
         "scope-imagegroup": { "elemType": "ImageGroup", "allowed": false, "actions": {}, "attributes": {"ImageGroup": "select * from ImageGroup where customerId not in ${associateIds}"} },
         "scope-imageref": { "elemType": "ImageRef", "allowed": false, "actions": {}, "attributes": {"ImageRef": "select * from ImageRef where customerId not in ${associateIds}"} },
         "scope-category": { "elemType": "ImageCategory", "allowed": false, "actions": {}, "attributes": {"ImageCategory": "select * from ImageCategory where customerId not in ${associateIds}"} },
-        "scope-scanjob": { "elemType": "ScanJob", "allowed": false, "actions": {}, "attributes": {"ScanJob": "select * from ScanJob where customerId not in ${associateIds}"} }
+        "scope-scanjob": { "elemType": "ScanJob", "allowed": false, "actions": {}, "attributes": {"ScanJob": "select * from ScanJob where customerId not in ${associateIds}"} },
+        "scope-imgrefcve": { "elemType": "ImageRefCve", "allowed": false, "actions": {}, "attributes": {"ImageRefCve": "select * from ImageRefCve where customerId not in ${associateIds}"} }
       }
     },
     "opsadmin": {
       "rules": {
         "allow-customer": { "elemType": "Customer", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} }
       }
+    },
+    "scanner": {
+      "rules": {
+        "allow-imageref-scan": { "elemType": "ImageRef", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
+        "allow-scanjob-scan": { "elemType": "ScanJob", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
+        "allow-cve-scan": { "elemType": "Cve", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} },
+        "allow-imgrefcve-scan": { "elemType": "ImageRefCve", "allowed": true, "actions": {"-999": true}, "attributes": {"*": "*"} }
+      }
     }
   },
   "users": {
-    "acme-user": { "userName": "acme-user", "password": "<hash>", "associateIds": ["CUST-ACME"], "roles": {"customer": true} }
+    "acme-user": { "userName": "acme-user", "password": "<hash>", "associateIds": ["CUST-ACME"], "roles": {"customer": true} },
+    "scanner-svc": { "userName": "scanner-svc", "password": "<hash>", "roles": {"scanner": true} }
   },
   "sysconfig": { "dataStoreType": 1, "dataStoreName": "secscan", "webPort": 2790 }
 }
 ```
+
+`scanner-svc` is `secscan-scanner`'s own system identity (§9, §13) — not customer-scoped (no `associateIds`), since it must read/write `ImageRef`/`ScanJob`/`Cve`/`ImageRefCve` across every tenant. `ImageRefCve` rows it writes carry a `customer_id` copied from the `ImageRef` being processed, not from this identity's own scope (§9).
 
 `login.json` (`LoginJsonAdaptation`): `apiPrefix` = `/scan` (not `/erp`); `appTitle` = "Layer 8 Secure Scan".
 
@@ -553,9 +599,10 @@ Phased per `MockDataRules`:
 2. **Categories** — 4–6 per customer (e.g. Production, Staging, Base Images, Deprecated) via Security-API-adjacent `ImgCat` POSTs.
 3. **Image Groups** — 15–20 per customer (varied `imageName`s), with a mix of categorized/uncategorized.
 4. **Image Refs** — 3–8 per group, varied `repoName`/`tag`/`buildDate` (descending order verifiable), most `PENDING`.
-5. **Scan results** — simulate completed scans for ~half of image refs per group: generate `Vulnerability` entries with a realistic severity distribution (few Critical, more High/Medium, most Low), derive `total_counts`/`distinct_counts`, set `scanStatus=COMPLETED`. Mock data generation bypasses `secscan-scanner`, so it must also set the parent `ImageGroup`'s `newest_counts`/`oldest_counts` (§7) directly for every group that gets at least one simulated completed scan — otherwise the dashboard/CSV/Trend panel (§10, §11.1, §11.3) would show blank figures for seeded data even though real usage would have them populated by the `After()` hook (§9).
-6. **Scan Jobs** — a handful of historical `ScanJob` records (`COMPLETED`/`FAILED`/`PARTIAL`) referencing the scanned image refs, for Scan History view content.
-7. **Security users** — one `customer`-role user per customer (`associateIds=[customerId]`), one `opsadmin` user, provisioned via Security API (`/73/users`), never a project-owned endpoint (`SecurityRules`).
+5. **Cve catalog** — a bounded pool of ~40-60 realistic-looking CVE IDs (mixed severities) generated once, shared across all simulated scan results (mirrors how the real scanner's find-or-create would naturally reuse common CVEs across images).
+6. **Scan results** — simulate completed scans for ~half of image refs per group: for each, pick a random subset of the `Cve` pool, create matching `ImageRefCve` rows (`customerId` from the `ImageRef`, `packageName`/`installedVersion`/`fixedVersion`/`title` fabricated, `severity` copied from the chosen `Cve`), derive `total_counts`/`distinct_counts` from that subset, set `scanStatus=COMPLETED`. Mock data generation bypasses `secscan-scanner`, so it must also set the parent `ImageGroup`'s `newest_counts`/`oldest_counts` (§7) directly for every group that gets at least one simulated completed scan — otherwise the dashboard/CSV/Trend panel (§10, §11.1, §11.3) would show blank figures for seeded data even though real usage would have them populated by the `After()` hook (§9).
+7. **Scan Jobs** — a handful of historical `ScanJob` records (`COMPLETED`/`FAILED`/`PARTIAL`) referencing the scanned image refs, for Scan History view content.
+8. **Security users** — one `customer`-role user per customer (`associateIds=[customerId]`), one `opsadmin` user, one `scanner-svc` user (§14), provisioned via Security API (`/73/users`), never a project-owned endpoint (`SecurityRules`).
 
 ## 16. Deployment Artifacts
 
@@ -600,6 +647,7 @@ Required per binary: `build.sh`, `Dockerfile`; project-wide: `build-all-images.s
 5. **opsadmin / Customer catalog** — resolved: committed v1 scope, not optional (§4).
 6. **Write-side `customer_id` trust boundary** — verified against actual `l8types`/`l8services`/`l8secure` source (not assumed): `IServiceCallback` has no access to the caller's identity, so a project cannot independently validate a write's `customer_id` against who's calling — this is a framework limitation, not a project bug to fix. Explicitly accepted for v1: `customer_id` is a client-supplied value the UI sets from the logged-in session (never a user-editable field); a malicious direct API call bypassing the UI is out of scope by product decision (§4, §9). If a stricter guarantee is ever needed, it requires a framework enhancement (e.g., threading `AAAId` into `IServiceCallback`) — flagged for the framework owner, not solved here.
 7. **Scanner job-processing concurrency** — verified `l8services`' "2-phase commit" transaction support is a leader-coordinated write-replication protocol (for replica consistency), not a distributed job-claim/lock primitive; there is no compare-and-swap on `PUT`/`PATCH`. `secscan-scanner` therefore runs as a **single replica** for v1 (§13, §16) rather than a horizontally-scaled pool with an invented claim mechanism. Multi-replica coordination via the framework's real leader-election primitives (`IServices.GetLeader`/`IsLeader`/`TriggerElections`) is possible but unverified for a non-ORM-owning worker process — left as explicit future work, not designed here.
+8. **CVE findings storage** — verified against `l8orm`'s actual query-to-SQL code (`l8orm/go/orm/stmt/QueryToSql.go`): a nested/child table (what an embedded `repeated Vulnerability` field of `ImageRef` would have become) only gets the query's `WHERE`/`ORDER BY` applied when it *is* the query's root type — otherwise it's read via an unfiltered full-table `SELECT`, with parent-key matching done afterward in application memory. At the volume a per-package-per-image CVE finding table could reach, that would mean either an unbounded read on every "view this image's vulnerabilities" click (no cache) or an ever-growing, all-tenants, all-time in-memory dataset (cache enabled). Resolved: `Vulnerability` is replaced by two Prime Objects — `Cve` (global catalog, §7) and `ImageRefCve` (per-image finding, customer-scoped, denormalized display fields, §7/§8) — so the per-image lookup is a normal, root-type, SQL-filtered/sorted query (§8, §11.4). This also generalizes: any child collection whose volume can grow large must be a Prime Object, never an embedded `repeated`-struct field.
 
 ### Residual open items (none blocking, flagged for awareness)
 
@@ -612,7 +660,8 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 
 - Bulk ingestion (`ImgRefAdd`): paste a mixed batch (valid new refs, an exact duplicate, an unparseable line) and assert the `created`/`skipped`/`errors` split is correct; assert correct `imageName` derivation and group reuse across differing repo hosts/tags.
 - Metadata resolution: seed `ImageRef`s with `buildDate=0`, run the resolver loop against a fixture/mock registry client, assert `buildDate` populates and the parent `ImageGroup` rollup cache updates; assert a registry lookup failure sets `scanError` and leaves the row visibly "Resolving…/Failed", never silently stuck with no explanation.
-- Scan pipeline: seed a `ScanJob`, run `secscan-scanner` against a fixture/mock Trivy JSON payload (or real Trivy against a known small test image), assert `total_counts`/`distinct_counts` and `ImageRef` status transitions; assert `ImageGroup.newest_counts`/`oldest_counts` update correctly, including the case where a newly-completed scan's `buildDate` is *older* than the group's current cached oldest (cache must move, not just append).
+- Scan pipeline: seed a `ScanJob`, run `secscan-scanner` against a fixture/mock Trivy JSON payload (or real Trivy against a known small test image), assert `total_counts`/`distinct_counts` and `ImageRef` status transitions; assert `ImageGroup.newest_counts`/`oldest_counts` update correctly, including the case where a newly-completed scan's `buildDate` is *older* than the group's current cached oldest (cache must move, not just append); assert `Cve` find-or-create doesn't duplicate an already-catalogued CVE across two different images' findings, and that `ImageRefCve` rows carry the scanned `ImageRef`'s `customer_id`, not the scanner's own identity.
+- `ImageRefCve` query shape: seed two customers' images with overlapping/duplicate `cveId`s, assert `select * from ImageRefCve where imageRefId=X sort-by severity desc` returns only that image's findings correctly sorted — this is the specific query pattern §8's fix depends on; a regression back to an embedded field here would silently reintroduce the full-table-scan problem.
 - Cache/reduction consistency: seed a group with ≥3 scanned image refs at different build dates, assert `VulnRep`'s CSV, the dashboard's Trend indicator, and the Group Detail Trend panel all report identical newest/oldest counts and reduction percentages for that group (single source of truth, §7/§9/§10) — including each of the three `N/A` edge cases applied the same way in all three places.
 - Row-level scoping: query as a `customer` user, assert zero cross-tenant leakage; query as `opsadmin`, assert full visibility including `Customer` management.
 - `ScanJob` data-integrity check: a `ScanJob` request whose `imageRefIds` don't all belong to the request's own `customerId` is rejected by `ScanJobServiceCallback` (§9) — this is a sanity check on the request's internal consistency, not a cross-tenant security test (see §4 for why write-side identity validation isn't attempted).
@@ -623,14 +672,14 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 - [x] Project structure follows `l8erp` layout (`go/secscan/{common,ui,main,vnet,scanner,log-vnet,log-agent}`, `types/secscan/`, `tests/mocks/`, `proto/`).
 - [x] Protobuf: enum zero = `UNSPECIFIED`, list types use `repeated X list = 1` + `metadata`, no direct Prime-Object struct refs (ID-only).
 - [x] Service: all ServiceNames ≤ 10 chars, one `ServiceArea` (60) for the module, every `ServiceCallback` (including `Customer`) auto-generates PK on POST, types registered in UI `main.go`, `l8events.EventRecord` registered per `EventsServiceRequired`.
-- [x] UI: all `AddingModule` integration steps enumerated (§11), desktop/mobile parity (§11.7), no immutable-entity gaps (all entities here are user-editable), embedded child (`Vulnerability`) rendered via read-only list not `f.inlineTable` edit semantics (display-only, matches its non-editable nature), components follow `l8ui` API (§11–§12).
+- [x] UI: all `AddingModule` integration steps enumerated (§11), desktop/mobile parity (§11.7), no immutable-entity gaps (all entities here are user-editable), `ImageRefCve` (never user-created/edited — written only by `secscan-scanner`) rendered via a read-only `Layer8DTable` with no add/edit/delete actions, not an `f.inlineTable` edit surface, components follow `l8ui` API (§11–§12).
 - [x] Mock Data: generators phased and dependency-ordered (§15), Security-API user provisioning (not project-owned).
 - [x] Deployment: `build.sh` + `Dockerfile` per binary, K8s YAMLs for all 4 modes + KIND scripts, `run-local.sh` (§16–§17).
 - [x] Configuration: `login.json` adapted (`apiPrefix=/scan`), no `ModConfig` dependency — the l8erp `Layer8DModuleFilter.load()` block is deliberately not called from copied `app.js` (§11.6, §12.2), per `ModconfigFailureNoLogout`; the `admin` module's visibility uses project-specific role logic instead, never that mechanism.
 - [x] `l8ui` added as a git submodule before any UI work (§17, `L8UICopyToNewProject`); `go/demo/` never hand-edited (§17, `DemoDirectorySync`).
 - [x] `PrdL8uiIncludesAudit` section present (§12).
 - [x] No `l8secure` import anywhere; all AAA via `ISecurityProvider`/Security API (§4, §14).
-- [x] `SingleOwnerDatabaseTable` respected — only `secscan` backend owns the ORM for its five Prime-Object-backed services; `secscan-scanner` is vnic-only (§9, §13).
+- [x] `SingleOwnerDatabaseTable` respected — only `secscan` backend owns the ORM for its seven Prime-Object-backed services; `secscan-scanner` is vnic-only (§9, §13).
 - [x] `PlanRequirements` duplication audit performed — two behavioral patterns that would otherwise be reimplemented 2-3× each are named as single shared abstractions instead: the `pollworker` poll-claim-dispatch harness (§13, used by both the resolver and scan loops), and the `ImageGroup.newest_counts`/`oldest_counts` cache maintained in exactly one hook (§7/§9, read — never re-derived — by the CSV report, dashboard, and Trend panel).
 - [x] Multi-tenancy: read-side scoping (`ScopeView`/deny rules) is enforced by the framework and verified against actual source (§4). Write-side `customer_id` validation against caller identity is a **confirmed framework gap** (`IServiceCallback` has no access to caller identity) — not something this PRD works around; it is an explicit, accepted v1 trust boundary (the UI is the only client, and it always supplies its own session's `customerId`), documented in §4/§9 rather than silently assumed.
 
@@ -639,7 +688,7 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 | # | Gap / Action Item | Phase |
 |---|---|---|
 | 1 | Proto definitions + `make-bindings.sh` | Phase 1 — Data Model |
-| 2 | Backend services + `ServiceCallback`s (Customer, ImgCat, ImgGroup, ImageRef, ScanJob) | Phase 2 — Backend |
+| 2 | Backend services + `ServiceCallback`s (Customer, ImgCat, ImgGroup, ImageRef, Cve, ImgRefCve, ScanJob) | Phase 2 — Backend |
 | 3 | `VulnRep` CSV report action-service (15-column, per-severity reduction) | Phase 2 — Backend |
 | 3a | `ImgRefAdd` bulk ingestion action-service (parse, dedupe, find-or-create group) | Phase 2 — Backend |
 | 4 | Security config JSON + row-level scoping rules (incl. `opsadmin`/`Customer`) | Phase 2 — Backend |
