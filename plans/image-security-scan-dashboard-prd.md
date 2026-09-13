@@ -57,7 +57,9 @@ One rule per elemType (`ImageCategory`, `ImageGroup`, `ImageRef`, `ScanJob`), sa
 
 Because the UI only ever renders one customer's rows, no "customer switcher" UI is needed — the deny rule guarantees a `customer` user's queries already return only their tenant's data. `opsadmin` sees all customers; that role is not covered by the deny rule (allow-all `Customer` management rule).
 
-**Read-side scoping is not enough on its own.** Per `SecurityConfigStructure`'s own pipeline note, the deny rule's `ScopeView()` filters **GET results** — it is a read-side control. Nothing in the framework stops a `customer`-role user's `POST`/`PUT` body from naming a *different* `customerId` than their own. Every write path that would otherwise accept a client-supplied `customerId` (`ImageCategory` create, `ScanJob` create, `ImgRefAdd`) therefore **derives `customer_id` server-side from the authenticated caller's own scope** (the same identity the deny rule's `${associateIds}` resolves from) and ignores/rejects any client-supplied value that disagrees — this is ordinary `ServiceCallback.Before()` validation logic (an approved extension point, not a new framework interface), not a workaround. See §9 for where this lands per service.
+**Read-side scoping is enforced by the framework; write-side `customer_id` is a trusted-client value, by design.** Per `SecurityConfigStructure`'s own pipeline note, the deny rule's `ScopeView()` filters **GET results** — confirmed against `l8secure/go/secure/provider/ScopeView.go`: it only ever operates on the response, never the incoming request. Verified against the actual source (`l8types/go/ifs/ServiceLevelAgreement.go`, `l8services/go/services/base/BaseService*.go`), `IServiceCallback.Before()`/`.After()` never receive the caller's identity at all — no `AAAId`, no session, nothing; the only place it exists is one layer up in `ServiceManager.Handle()`, used solely for the coarse type+action `CanDoAction` check and for `ScopeView` on the response. So there is **no extension point available to a project** that could validate or override a write's `customer_id` against the caller's identity — this is a framework gap, not something closable with more careful `ServiceCallback` code (adding an `AAAId` parameter to `IServiceCallback` would be a fundamental interface change, per `FrameworkInterfaceBoundaries` something to flag to the framework owner, not add locally).
+
+**Accepted for v1:** every write in this app carries a client-supplied `customer_id`, sourced by the UI from the logged-in user's own session/customer context (the UI never lets a user type or pick a different `customerId` — it's implicit, not a form field). The threat model this PRD covers is the UI itself and the standard credential/session boundary (a `customer`-role bearer token only exists for, and is only ever used by, that customer's own session); a maliciously crafted direct API call using a valid token to name a *different* tenant's `customerId` in a write is **out of scope** — accepted, not mitigated, per explicit product decision. `CanDoAction`'s coarse allow/deny check and `ScopeView`'s read-side filtering remain the real security boundary; nothing here weakens those.
 
 ## 5. Terminology & Grouping Algorithm
 
@@ -93,14 +95,14 @@ Ingestion is UI-driven and bulk-first (confirmed): an **"Add Images"** action op
 
 ```
 POST /60/ImgRefAdd
-{ "imageRefStrings": ["repoA/backend:v1.2.3", "repoB/worker:v0.9", ...] }
+{ "customerId": "...", "imageRefStrings": ["repoA/backend:v1.2.3", "repoB/worker:v0.9", ...] }
 
 -> { "created": ["<imageRefId>", ...],
      "skipped":  [{ "ref": "...", "reason": "duplicate of existing image ref" }],
      "errors":   [{ "ref": "...", "reason": "could not parse image reference" }] }
 ```
 
-Note there is no `customerId` field in the request — the handler derives it server-side from the authenticated caller's own scope (§4), rather than trusting a client-supplied value.
+`customerId` is supplied by the client — the UI sets it from the logged-in user's own session context, never from user input. The server does not independently validate it against the caller's identity; see §4 for why (confirmed framework limitation) and why that's an accepted v1 trust boundary, not a gap this endpoint tries to close.
 
 **Phase A — synchronous (in the `ImgRefAdd` handler, shared with the plain `ImageRef` POST path via one common Go helper — `Duplication Prevention` "Second Instance Rule", extract-on-second-use):**
 
@@ -293,15 +295,15 @@ Module `secscan`, single `ServiceArea = 60` for all `secscan`-owned services (`M
 
 Per `SingleOwnerDatabaseTable`, the ORM for the five Prime-Object-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `ScanJob`) is activated in exactly one process (`secscan` backend/`main`). `VulnRep` and `ImgRefAdd` are stateless action handlers hosted in that same process — they have no table/ORM of their own, they read and write the already-owned tables directly, so no second-owner question arises for them. The `secscan-scanner` worker never activates a local ORM for any of these — it reaches them exclusively through `vnic` RPC (`vnic.Get/Post/Put`).
 
-**Shared helper — `customer_id` derivation (one place, not three).** `ImageCategory`, `ImageRef`, and `ScanJob` all need the identical "read the caller's own scope, stamp `customer_id`, ignore any client-supplied value" step (§4). Rather than each `ServiceCallback` re-implementing it, it lives in exactly one function — `secscan/common.DeriveCustomerID(resources ifs.IResources) string`, reading the same identity the deny rule's `${associateIds}` placeholder resolves from — and every `Before()` hook below that needs a `customer_id` calls it (`Duplication Prevention` "Second Instance Rule": extract on second use, not third).
+**`customer_id` is a trusted, client-supplied value everywhere (§4) — not derived or validated server-side.** This was verified against the actual framework source, not assumed: `IServiceCallback.Before()`/`.After()` (`l8types/go/ifs/ServiceLevelAgreement.go`) have no access to the caller's identity, so no `ServiceCallback` in this list can independently confirm "does this `customer_id` belong to whoever is calling." Every `Before()` hook that sets `customer_id` on POST simply takes it from the request body (as the UI populated it from the logged-in user's session, §11) or copies it from an already-trusted parent record — it does not attempt to re-derive or cross-check it against caller identity, because no hook here has the information to do that.
 
 `ServiceCallback` responsibilities (`Before`/`After` hooks only, per `MainPackageMinimal` / `FrameworkInterfaceBoundaries`):
 
-- `CustomerServiceCallback`: `common.GenerateID` on POST. (`Customer` rows are created only by `opsadmin`, which is not customer-scoped, so `DeriveCustomerID` doesn't apply here.)
-- `ImageCategoryServiceCallback`: `Before()` on POST — `customer_id = common.DeriveCustomerID(resources)`, `common.GenerateID`.
-- `ImageGroupServiceCallback`: `common.GenerateID` on POST (used internally by the `ImageRef` ingestion flow, not directly by end users — there is no user-facing "Add Group" form; groups only ever emerge from ingestion, category reassignment happens via `PUT`). `customer_id` is copied from the triggering `ImageRef`'s already-derived value, never client-supplied.
-- `ImageRefServiceCallback`: `Before()` on POST calls the shared ingestion helper (`customer_id = common.DeriveCustomerID(resources)`, parse ref, dedupe, find-or-create group, `common.GenerateID`, set `PENDING`, §6.1 Phase A) — used both by a direct single-entity POST and, internally, by the `ImgRefAdd` bulk handler. `After()` on PUT recomputes the parent `ImageGroup` rollup cache (`imageRefCount`, `latestBuildDate`, and — on scan completion — `newestCounts`/`oldestCounts`, §7) whenever `buildDate` resolves from `0` to a real value (§6.1 Phase B) or a scan completes (§13).
-- `ScanJobServiceCallback`: `Before()` on POST — `customer_id = common.DeriveCustomerID(resources)`, validate all `image_ref_ids` actually belong to that `customer_id` (cross-object validation is app logic, not row security, so it belongs here — this catches an attempt to queue a scan against another tenant's `imageRefId` even though the id itself isn't guessable), `common.GenerateID`, set `status = QUEUED`, `totalImages = len(imageRefIds)`, `requestedAt = now`. No scanning happens inline in the callback (`MainPackageMinimal` — business/long-running work does not belong in a synchronous CRUD hook); the `secscan-scanner` worker polls for queued jobs (§13).
+- `CustomerServiceCallback`: `common.GenerateID` on POST. (`Customer` rows are created only by `opsadmin`, which is not customer-scoped.)
+- `ImageCategoryServiceCallback`: `Before()` on POST — takes `customer_id` from the request body, `common.GenerateID`.
+- `ImageGroupServiceCallback`: `common.GenerateID` on POST (used internally by the `ImageRef` ingestion flow, not directly by end users — there is no user-facing "Add Group" form; groups only ever emerge from ingestion, category reassignment happens via `PUT`). `customer_id` is copied from the triggering `ImageRef`.
+- `ImageRefServiceCallback`: `Before()` on POST calls the shared ingestion helper (takes `customer_id` from the request, parse ref, dedupe, find-or-create group, `common.GenerateID`, set `PENDING`, §6.1 Phase A) — used both by a direct single-entity POST and, internally, by the `ImgRefAdd` bulk handler. `After()` on PUT recomputes the parent `ImageGroup` rollup cache (`imageRefCount`, `latestBuildDate`, and — on scan completion — `newestCounts`/`oldestCounts`, §7) whenever `buildDate` resolves from `0` to a real value (§6.1 Phase B) or a scan completes (§13).
+- `ScanJobServiceCallback`: `Before()` on POST — takes `customer_id` from the request body, validates all `image_ref_ids` actually belong to that `customer_id` (a data-integrity sanity check against accidental cross-group mixing in the request, not a security boundary — it only checks internal consistency of the request's own stated `customer_id`, which itself isn't independently verified, §4), `common.GenerateID`, set `status = QUEUED`, `totalImages = len(imageRefIds)`, `requestedAt = now`. No scanning happens inline in the callback (`MainPackageMinimal` — business/long-running work does not belong in a synchronous CRUD hook); the `secscan-scanner` worker polls for queued jobs (§13).
 
 Types registered in `go/secscan/ui/main.go` via `introspect.AddPrimaryKeyDecorator` + `registry.Register`, per `Maintainability`.
 
@@ -369,7 +371,7 @@ Opened via `Layer8DPopup.show({size:'xlarge', ...})`:
 
 - Header: group name, editable Category reference field (saves via `PUT /60/ImgGroup`), and a **Trend panel**: Newest vs. Oldest scanned image's Critical/High/Medium/Low counts side by side, plus the per-severity reduction %. This panel reads `newest_counts`/`oldest_counts` straight off the same `ImageGroup` record already fetched to render this popup's header — no separate query, no separate computation of "which image ref is newest/oldest" (that's centralized once, §7/§9); only the trivial reduction-% arithmetic is (re-)done here, applying the same canonical `N/A` rule set as §10.
 - `Layer8DTable` over `ImageRef`, `baseWhereClause: "imageGroupId='<id>'"`, default `sort-by buildDate desc` (requirement 5). Columns: checkbox (multi-select — table's native row-selection, not a `showActions` CRUD column), Repo, Tag, Build Date (renders "Resolving…" while `buildDate=0` and no `scanError`, or an error indicator if resolution failed — §6.1 Phase B), Scan Status (`createStatusRenderer`), Total C/H/M/L, Distinct C/H/M/L.
-- Toolbar button **"Scan Selected"**: enabled when ≥1 row selected; `POST /60/ScanJob` with `{imageRefIds: [...selected]}` (no `customerId` in the body — derived server-side, §4). On success, `Layer8DNotification.success('Scan job queued')`; selected rows' status flips to `SCANNING` once the scanner claims the job (poll/refresh, or WebSocket notification push per `l8web`'s notification channel — reuse, don't build a new transport).
+- Toolbar button **"Scan Selected"**: enabled when ≥1 row selected; `POST /60/ScanJob` with `{customerId, imageRefIds: [...selected]}` (`customerId` set by the UI from the logged-in session, never user-entered, §4). On success, `Layer8DNotification.success('Scan job queued')`; selected rows' status flips to `SCANNING` once the scanner claims the job (poll/refresh, or WebSocket notification push per `l8web`'s notification channel — reuse, don't build a new transport).
 - Row click on an `ImageRef` → **Vulnerability Detail** popup (§11.4).
 
 ### 11.4 Vulnerability Detail (per Image Ref)
@@ -382,7 +384,7 @@ Opened via `Layer8DPopup.show({size:'xlarge', ...})`:
 ### 11.5 Add Images (bulk ingestion)
 
 - Toolbar action on the Image Groups view, opens a `Layer8DPopup` with a single `f.textarea('imageRefStrings', 'Image References (one per line)', true)` field — no build-date input (resolved automatically, §6.1 Phase B).
-- On save: client splits the textarea into lines, `POST /60/ImgRefAdd` with `{imageRefStrings}` (no `customerId` — derived server-side, §4/§9).
+- On save: client splits the textarea into lines, `POST /60/ImgRefAdd` with `{customerId, imageRefStrings}` (`customerId` set by the UI from the logged-in session, §4/§9).
 - Response summary rendered in a follow-up notification/popup: N created, N skipped (duplicates, with the offending ref shown), N errors (unparseable ref, with the offending line shown) — per `ReportInfraBugs` "No Silent Fallbacks", every skipped/errored line is shown to the user, never silently dropped.
 - Newly created rows appear immediately in the relevant group(s)' detail view with `scanStatus=PENDING` and Build Date "Resolving…".
 
@@ -474,14 +476,16 @@ First implementation phase creates `app.html` and `m/app.html` with every "Yes" 
 
 ## 13. Trivy Scanning Pipeline
 
-New binary: `secscan-scanner` (not a UI/backend-DB process — a stateless worker pool, per `l8utils` bounded worker pool with fan-out/fan-in).
+New binary: `secscan-scanner` (not a UI/backend-DB process — a stateless worker pool, per `l8utils` bounded worker pool with fan-out/fan-in). **Runs as a single replica for v1** — see the concurrency note below for why.
 
-**Shared poll-claim-dispatch harness (one implementation, two configurations — `Duplication Prevention` "Second Instance Rule").** Both loops `secscan-scanner` runs — the metadata **resolver** loop (§6.1 Phase B, fills in `buildDate` for newly-added refs) and the **scan** loop below (Trivy) — are structurally identical: poll a table on an interval for rows matching a status predicate, transactionally claim a matched row (`l8services` 2-phase-commit, so multiple `secscan-scanner` replicas never double-process the same row), dispatch claimed rows to a bounded worker pool, and write the result back over `vnic`. Rather than writing that harness twice, it is one generic internal helper, e.g. `pollworker.Run(query L8Query, claim ClaimFunc, work WorkFunc)`, and each loop is just one configuration of it:
+**Shared poll-claim-dispatch harness (one implementation, two configurations — `Duplication Prevention` "Second Instance Rule").** Both loops `secscan-scanner` runs — the metadata **resolver** loop (§6.1 Phase B, fills in `buildDate` for newly-added refs) and the **scan** loop below (Trivy) — are structurally identical: poll a table on an interval for rows matching a status predicate, mark a matched row claimed, dispatch claimed rows to a bounded worker pool, and write the result back over `vnic`. Rather than writing that harness twice, it is one generic internal helper, e.g. `pollworker.Run(query L8Query, claim ClaimFunc, work WorkFunc)`, and each loop is just one configuration of it:
 
 - **Resolver loop**: `query = "select * from ImageRef where buildDate=0"`; `claim` = no-op (a metadata lookup is idempotent, safe to retry, no exclusive claim needed); `work` = the registry lookup in §6.1 Phase B.
-- **Scan loop** (§13.1 below): `query = "select * from ScanJob where status='JOB_STATUS_QUEUED'"`; `claim` = the transactional `QUEUED → RUNNING` update; `work` = the Trivy invocation.
+- **Scan loop** (§13.1 below): `query = "select * from ScanJob where status='JOB_STATUS_QUEUED'"`; `claim` = the `QUEUED → RUNNING` update; `work` = the Trivy invocation.
 
 They also share one registry client (credentials, §18).
+
+**Concurrency note — verified, corrected from an earlier draft.** `l8services`' "2-phase commit" transaction support (`l8services/go/services/transaction/states/*.go`) is a leader-coordinated **write-replication** protocol for consistency across a service's own replica nodes — it is not a distributed job-claim/lock primitive, and there is no compare-and-swap on `PUT`/`PATCH` (a `PUT` just overwrites). So two `secscan-scanner` replicas both polling the same `QUEUED` job could both claim and both run Trivy on it — a real double-processing bug if this ran as more than one replica. Rather than invent an unverified locking scheme, `secscan-scanner` runs as **exactly one replica** for v1 (§16); its internal worker pool still gives real per-pod concurrency across images within a job. Scaling to multiple replicas would need the framework's actual leader-election primitives (`IServices.GetLeader`/`IsLeader`/`TriggerElections` — real, confirmed to exist) wired up for a non-ORM-owning process, which is unverified and left as explicit future work (§18), not designed here.
 
 ### 13.1 Scan loop
 
@@ -496,7 +500,7 @@ Configures the shared harness above with the `ScanJob`/`QUEUED` query and claim 
 4. Updates `ScanJob.completedImages`/`failedImages`; when all images are done, sets `status = COMPLETED` (or `PARTIAL` if any failed, or `FAILED` if all failed) and `completedAt`.
 5. The `ImageRefServiceCallback.After()` hook (§9) recomputes the parent `ImageGroup`'s cached `latestBuildDate`, and — since this `ImageRef` just transitioned to `COMPLETED` — its `newestCounts`/`oldestCounts` (§7) by comparing this ref's `buildDate` against the group's current newest/oldest scanned refs. This is the **one** place that comparison happens; the dashboard, CSV report, and Trend panel all just read the resulting cached fields (§10, §11.1, §11.3) rather than each re-deriving it.
 
-Per `SingleOwnerDatabaseTable`, `secscan-scanner` never activates a local ORM for `ImageRef`/`ScanJob` — every read/write above is a remote `vnic` call to the `secscan` backend, which is the sole ORM owner. This also lets `secscan-scanner` run as a horizontally-scaled `Deployment` with multiple replicas.
+Per `SingleOwnerDatabaseTable`, `secscan-scanner` never activates a local ORM for `ImageRef`/`ScanJob` — every read/write above is a remote `vnic` call to the `secscan` backend, which is the sole ORM owner.
 
 ### 13.2 Trivy vulnerability database cache
 
@@ -562,7 +566,7 @@ Per `DeploymentArtifacts`, `L8PollarisBinaryDeployment` (pattern, not literal ap
 | `secscan` (backend, owns ORM) | `go/secscan/main/` | `saichler/secscan` | `secscan-postgres` | StatefulSet |
 | `secscan-web` (UI server) | `go/secscan/ui/` | `saichler/secscan-web` | `secscan-security` | DaemonSet (hostNetwork) |
 | `secscan-vnet` | `go/secscan/vnet/` | `saichler/secscan-vnet` | `secscan-security` | DaemonSet (hostNetwork) |
-| `secscan-scanner` | `go/secscan/scanner/` | `saichler/secscan-scanner` | `secscan-security` + Trivy binary layer | Deployment (scaled, no hostNetwork/local state) |
+| `secscan-scanner` | `go/secscan/scanner/` | `saichler/secscan-scanner` | `secscan-security` + Trivy binary layer | Deployment, `replicas: 1` for v1 (§13), no hostNetwork/durable state |
 | `secscan-log-vnet` | `go/secscan/log-vnet/` | `saichler/secscan-log-vnet` | `secscan-security` | DaemonSet (hostNetwork) |
 | `secscan-log-agent` | `go/secscan/log-agent/` | `saichler/secscan-log-agent` | `secscan-security` | DaemonSet |
 
@@ -594,6 +598,8 @@ Required per binary: `build.sh`, `Dockerfile`; project-wide: `build-all-images.s
 3. **CSV "Reduction %"** — resolved: per-severity (4 columns: Critical/High/Medium/Low), not one overall figure (§10).
 4. **Group-level vulnerability counts** — resolved: both **newest and oldest** scanned image ref's totals are reported (8 columns in the CSV), not just the latest (§10). The main list table still shows only the newest, for table-width reasons (§11.1); full newest/oldest/reduction detail lives in the Group Detail Trend panel (§11.3) and the CSV.
 5. **opsadmin / Customer catalog** — resolved: committed v1 scope, not optional (§4).
+6. **Write-side `customer_id` trust boundary** — verified against actual `l8types`/`l8services`/`l8secure` source (not assumed): `IServiceCallback` has no access to the caller's identity, so a project cannot independently validate a write's `customer_id` against who's calling — this is a framework limitation, not a project bug to fix. Explicitly accepted for v1: `customer_id` is a client-supplied value the UI sets from the logged-in session (never a user-editable field); a malicious direct API call bypassing the UI is out of scope by product decision (§4, §9). If a stricter guarantee is ever needed, it requires a framework enhancement (e.g., threading `AAAId` into `IServiceCallback`) — flagged for the framework owner, not solved here.
+7. **Scanner job-processing concurrency** — verified `l8services`' "2-phase commit" transaction support is a leader-coordinated write-replication protocol (for replica consistency), not a distributed job-claim/lock primitive; there is no compare-and-swap on `PUT`/`PATCH`. `secscan-scanner` therefore runs as a **single replica** for v1 (§13, §16) rather than a horizontally-scaled pool with an invented claim mechanism. Multi-replica coordination via the framework's real leader-election primitives (`IServices.GetLeader`/`IsLeader`/`TriggerElections`) is possible but unverified for a non-ORM-owning worker process — left as explicit future work, not designed here.
 
 ### Residual open items (none blocking, flagged for awareness)
 
@@ -609,7 +615,7 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 - Scan pipeline: seed a `ScanJob`, run `secscan-scanner` against a fixture/mock Trivy JSON payload (or real Trivy against a known small test image), assert `total_counts`/`distinct_counts` and `ImageRef` status transitions; assert `ImageGroup.newest_counts`/`oldest_counts` update correctly, including the case where a newly-completed scan's `buildDate` is *older* than the group's current cached oldest (cache must move, not just append).
 - Cache/reduction consistency: seed a group with ≥3 scanned image refs at different build dates, assert `VulnRep`'s CSV, the dashboard's Trend indicator, and the Group Detail Trend panel all report identical newest/oldest counts and reduction percentages for that group (single source of truth, §7/§9/§10) — including each of the three `N/A` edge cases applied the same way in all three places.
 - Row-level scoping: query as a `customer` user, assert zero cross-tenant leakage; query as `opsadmin`, assert full visibility including `Customer` management.
-- Write-side tenant isolation: as customer A, attempt `ScanJob`/`ImgRefAdd`/`ImageCategory` writes referencing customer B's `imageRefId`s or targeting customer B's data; assert the server-derived `customer_id` (not any client-supplied value) is what's persisted, and cross-tenant `imageRefId` references in a `ScanJob` request are rejected (§4, §9).
+- `ScanJob` data-integrity check: a `ScanJob` request whose `imageRefIds` don't all belong to the request's own `customerId` is rejected by `ScanJobServiceCallback` (§9) — this is a sanity check on the request's internal consistency, not a cross-tenant security test (see §4 for why write-side identity validation isn't attempted).
 - CSV report: assert the full 15-column set, sort order of the `Image Refs` cell, and per-severity reduction-% math (including the "<2 scanned refs", "single data point", and "oldest severity count = 0" → `N/A` edge cases).
 
 ## 20. Compliance Checklist (`PrdCompliance`)
@@ -625,8 +631,8 @@ Per `TestLocationAndApproach`: all tests in `go/tests/`, exercised through `IVNi
 - [x] `PrdL8uiIncludesAudit` section present (§12).
 - [x] No `l8secure` import anywhere; all AAA via `ISecurityProvider`/Security API (§4, §14).
 - [x] `SingleOwnerDatabaseTable` respected — only `secscan` backend owns the ORM for its five Prime-Object-backed services; `secscan-scanner` is vnic-only (§9, §13).
-- [x] `PlanRequirements` duplication audit performed — three behavioral patterns that would otherwise be reimplemented 2-3× each are named as single shared abstractions instead: `common.DeriveCustomerID` (§9, used by `ImageCategory`/`ImageRef`/`ScanJob` callbacks), the `pollworker` poll-claim-dispatch harness (§13, used by both the resolver and scan loops), and the `ImageGroup.newest_counts`/`oldest_counts` cache maintained in exactly one hook (§7/§9, read — never re-derived — by the CSV report, dashboard, and Trend panel).
-- [x] Multi-tenancy is enforced on **both** read and write paths: the deny rule scopes GET results (`SecurityConfigStructure`); every write endpoint that would otherwise accept a client-supplied `customerId` derives it server-side from the authenticated caller instead (§4, §9) — closing the gap a read-only deny rule leaves open.
+- [x] `PlanRequirements` duplication audit performed — two behavioral patterns that would otherwise be reimplemented 2-3× each are named as single shared abstractions instead: the `pollworker` poll-claim-dispatch harness (§13, used by both the resolver and scan loops), and the `ImageGroup.newest_counts`/`oldest_counts` cache maintained in exactly one hook (§7/§9, read — never re-derived — by the CSV report, dashboard, and Trend panel).
+- [x] Multi-tenancy: read-side scoping (`ScopeView`/deny rules) is enforced by the framework and verified against actual source (§4). Write-side `customer_id` validation against caller identity is a **confirmed framework gap** (`IServiceCallback` has no access to caller identity) — not something this PRD works around; it is an explicit, accepted v1 trust boundary (the UI is the only client, and it always supplies its own session's `customerId`), documented in §4/§9 rather than silently assumed.
 
 ## 21. Traceability Matrix
 
