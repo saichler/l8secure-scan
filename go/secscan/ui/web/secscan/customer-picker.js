@@ -22,15 +22,30 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 window.SecScanCustomerPicker = (function() {
     'use strict';
 
-    // Runs once per app.html load, before the rest of the app initializes
-    // (secscan-init.js calls this first). No-op if a customer is already
-    // scoped (the normal case for a real customer-role login).
+    // Two independent call sites need to wait on this (app.js's initial
+    // loadSection('vulnmgmt') and secscan-init.js's module setup) -- both
+    // run before a customer is necessarily picked, so this must be safe to
+    // call more than once concurrently: queue callbacks and show the
+    // popup only once, rather than stacking a second popup on a second
+    // call while the first is still open.
+    let popupOpen = false;
+    const waiters = [];
+
+    // No-op if a customer is already scoped (the normal case for a real
+    // customer-role login) -- callback runs synchronously in that case.
     function checkAndPrompt(onReady) {
         if (SecScan.getCurrentCustomerId()) {
             onReady();
             return;
         }
-        show(onReady);
+        waiters.push(onReady);
+        if (popupOpen) return;
+        popupOpen = true;
+        show(function() {
+            popupOpen = false;
+            const pending = waiters.splice(0, waiters.length);
+            pending.forEach(function(fn) { fn(); });
+        });
     }
 
     function show(onReady) {

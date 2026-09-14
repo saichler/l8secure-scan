@@ -105,10 +105,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     // (§14's deny-before-allow, the real boundary per §11.6's own text), so
     // a customer-role user who clicks in just sees an empty/erroring table.
 
-    // Load default section (Vulnerability Management -- the Image Groups
-    // dashboard, PRD §11.1)
-    loadSection('vulnmgmt');
-
     // Add event listeners to navigation links
     const navLinks = document.querySelectorAll('.nav-link');
     navLinks.forEach(link => {
@@ -120,4 +116,20 @@ document.addEventListener('DOMContentLoaded', async function() {
             loadSection(section);
         });
     });
+
+    // Load default section (Vulnerability Management -- the Image Groups
+    // dashboard, PRD §11.1) only once a customer is confirmed -- an
+    // unscoped user (opsadmin, PRD §4) must not have any section fetched/
+    // rendered, and no query fired (loadCategoryCache, KPI counts, table
+    // loads all happen inside sectionInitializers.vulnmgmt), until they've
+    // picked one via SecScanCustomerPicker. Verified as a real bug: this
+    // call used to run unconditionally here, so the whole dashboard loaded
+    // in the background behind the picker popup regardless of selection.
+    if (typeof SecScanCustomerPicker !== 'undefined') {
+        SecScanCustomerPicker.checkAndPrompt(function() {
+            loadSection('vulnmgmt');
+        });
+    } else {
+        loadSection('vulnmgmt');
+    }
 });
