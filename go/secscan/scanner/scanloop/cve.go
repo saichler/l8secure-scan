@@ -19,8 +19,15 @@ func findOrCreateCve(cveId string, severity secscan.Severity, title string, vnic
 	if err != nil {
 		return err
 	}
-	if len(existing) > 0 {
-		return nil
+	// GetEntitiesByQuery's local-handler fast path returns a one-element
+	// slice containing a nil entry for a genuine zero-match query rather
+	// than an empty slice (verified against a real cluster, same issue
+	// worked around in scommon.PrepareImageRef) -- len(existing) > 0 alone
+	// would make this find-or-create never create anything.
+	for _, e := range existing {
+		if c, ok := e.(*secscan.Cve); ok && c != nil {
+			return nil
+		}
 	}
 
 	cve := &secscan.Cve{CveId: cveId, Severity: severity, Title: title}

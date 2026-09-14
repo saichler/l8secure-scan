@@ -119,15 +119,19 @@ func PrepareImageRef(ref *secscan.ImageRef, vnic ifs.IVNic) error {
 		"select * from ImageRef where customerId='%s' and repoName='%s' and tag='%s' and digest='%s'",
 		ref.CustomerId, ref.RepoName, ref.Tag, ref.Digest)
 	existing, err := l8common.GetEntitiesByQuery(ImageRefServiceName, ServiceArea, dupQuery, vnic)
-	vnic.Resources().Logger().Info("DEBUG PrepareImageRef dupQuery=", dupQuery, " len(existing)=", len(existing), " err=", err)
-	for i, e := range existing {
-		vnic.Resources().Logger().Info("DEBUG PrepareImageRef existing[", i, "]=", fmt.Sprintf("%#v", e))
-	}
 	if err != nil {
 		return err
 	}
-	if len(existing) > 0 {
-		return ErrDuplicateImageRef
+	// GetEntitiesByQuery's local-handler fast path (used when this process
+	// owns the ImageRef ORM, verified against a real cluster) returns a
+	// one-element slice containing a single nil entry for a genuine
+	// zero-match query, rather than an empty slice -- so len(existing) > 0
+	// alone is not a reliable "found a real duplicate" check; a nil (or
+	// typed-nil *ImageRef) entry must not count.
+	for _, e := range existing {
+		if r, ok := e.(*secscan.ImageRef); ok && r != nil {
+			return ErrDuplicateImageRef
+		}
 	}
 
 	groupId, err := findOrCreateImageGroup(ref.CustomerId, imageName, vnic)

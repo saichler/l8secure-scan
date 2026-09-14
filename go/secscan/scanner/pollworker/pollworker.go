@@ -70,6 +70,14 @@ func tick(cfg Config, vnic ifs.IVNic) {
 	var wg sync.WaitGroup
 	for _, it := range items {
 		item := it
+		// GetEntitiesByQuery has been observed (verified against a real
+		// cluster, see scommon.PrepareImageRef) to return a one-element
+		// slice holding a nil entry for a genuine zero-match query rather
+		// than an empty slice -- guard against dispatching that nil to
+		// Claim/Work, which don't expect it.
+		if item == nil {
+			continue
+		}
 		if cfg.Claim != nil && !cfg.Claim(item, vnic) {
 			continue
 		}
