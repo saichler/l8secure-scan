@@ -32,7 +32,7 @@ spec:
       containers:
         - name: secscan-vnet
           image: saichler/secscan-vnet:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33005
           env:
@@ -71,7 +71,7 @@ spec:
       containers:
         - name: secscan-log-vnet
           image: saichler/secscan-log-vnet:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33010
           env:
@@ -111,7 +111,7 @@ spec:
       containers:
         - name: secscan
           image: saichler/secscan:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
               valueFrom:
@@ -153,7 +153,7 @@ spec:
       containers:
         - name: secscan-scanner
           image: saichler/secscan-scanner:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
               valueFrom:
@@ -190,7 +190,7 @@ spec:
       containers:
         - name: secscan-web
           image: saichler/secscan-web:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2790
           env:
@@ -228,7 +228,7 @@ spec:
       containers:
         - name: secscan-log-agent
           image: saichler/secscan-log-agent:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: LOGPATH
               value: /data/logs/secscan

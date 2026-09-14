@@ -119,6 +119,10 @@ func PrepareImageRef(ref *secscan.ImageRef, vnic ifs.IVNic) error {
 		"select * from ImageRef where customerId='%s' and repoName='%s' and tag='%s' and digest='%s'",
 		ref.CustomerId, ref.RepoName, ref.Tag, ref.Digest)
 	existing, err := l8common.GetEntitiesByQuery(ImageRefServiceName, ServiceArea, dupQuery, vnic)
+	vnic.Resources().Logger().Info("DEBUG PrepareImageRef dupQuery=", dupQuery, " len(existing)=", len(existing), " err=", err)
+	for i, e := range existing {
+		vnic.Resources().Logger().Info("DEBUG PrepareImageRef existing[", i, "]=", fmt.Sprintf("%#v", e))
+	}
 	if err != nil {
 		return err
 	}

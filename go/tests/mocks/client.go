@@ -7,6 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
+
+	scommon "github.com/saichler/l8secure-scan/go/secscan/common"
 )
 
 // Client handles API communication with the secscan-web server. Mirrors
@@ -66,13 +69,24 @@ func (c *Client) Authenticate(user, password string) error {
 	return nil
 }
 
+// entityURL prepends the project's own API prefix (LoginJsonAdaptation,
+// scommon.PREFIX="/scan/") to an entity/service endpoint -- verified
+// against a real running secscan-web that only /auth and /0/Health are
+// prefix-free system routes; every /<area>/<ServiceName> route is
+// registered under the prefix (a real bug caught here: this client
+// previously sent entity requests to the bare, unprefixed path and got a
+// 404 from the real server).
+func (c *Client) entityURL(endpoint string) string {
+	return c.baseURL + "/" + strings.Trim(scommon.PREFIX, "/") + endpoint
+}
+
 func (c *Client) Post(endpoint string, data interface{}) (string, error) {
 	body, err := json.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal data: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", c.baseURL+endpoint, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", c.entityURL(endpoint), bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -93,7 +107,7 @@ func (c *Client) Post(endpoint string, data interface{}) (string, error) {
 }
 
 func (c *Client) Get(endpoint string, queryJSON string) (string, error) {
-	fullURL := c.baseURL + endpoint + "?body=" + url.QueryEscape(queryJSON)
+	fullURL := c.entityURL(endpoint) + "?body=" + url.QueryEscape(queryJSON)
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)

@@ -62,11 +62,18 @@ func seedCategoriesData(client *Client) error {
 // SecScan.getCurrentCustomerId() resolve correctly for this user after
 // login (the sessionStorage.userCustomer mechanism wired in Phase 4/the
 // l8secure/l8types/l8ui plumbing).
+//
+// localUserPassword must satisfy l8secure's default password policy
+// (PasswordPolicy.go: min 10 chars, upper+digit+special required, no 3+
+// repeated/sequential characters -- "123"/"abc"/"aaa" all rejected) -- a
+// real 400 caught only by actually running this against a live server.
+const localUserPassword = "Vx9!TangoQm"
+
 func seedSecurityUser(client *Client) error {
 	_, err := client.Post("/73/users", map[string]interface{}{
 		"userId":   "local-user",
 		"fullName": "Local Customer User",
-		"password": map[string]interface{}{"hash": "localpass"},
+		"password": map[string]interface{}{"hash": localUserPassword},
 		"roles":    map[string]interface{}{"customer": true},
 		"associateIds": []string{
 			localCustomerID,
@@ -76,7 +83,7 @@ func seedSecurityUser(client *Client) error {
 	if err != nil {
 		return fmt.Errorf("seed security user: %w", err)
 	}
-	fmt.Printf("  Security user \"local-user\" created (password: localpass, customer: %s)\n", localCustomerID)
+	fmt.Printf("  Security user \"local-user\" created (password: %s, customer: %s)\n", localUserPassword, localCustomerID)
 	return nil
 }
 
@@ -95,17 +102,17 @@ func seedImageRefs(client *Client) error {
 	return nil
 }
 
-// RunSeed runs every seeding step in dependency order: Customer must exist
-// before anything customer-scoped, the security user and image refs have
-// no ordering dependency on each other.
+// RunSeed runs every seeding step in dependency order. Verified against a
+// real cluster: opsadmin's role (secscan.json) grants ONLY Customer
+// access (PRD §9's "opsadmin only manages Customer records") -- Categories
+// and ImgRefAdd are "customer"-role-only actions and return "access
+// denied" for opsadmin, a real 400 caught only by actually running this
+// against a live server. So after creating the Customer and the
+// customer-role security user (both opsadmin-only actions), the client
+// re-authenticates AS that new user for everything customer-scoped.
 func RunSeed(client *Client) error {
 	fmt.Println("Seeding Customer...")
 	if err := seedCustomer(client); err != nil {
-		return err
-	}
-
-	fmt.Println("Seeding Categories...")
-	if err := seedCategoriesData(client); err != nil {
 		return err
 	}
 
@@ -114,10 +121,26 @@ func RunSeed(client *Client) error {
 		return err
 	}
 
+	// Save the opsadmin token so it's restored before returning -- callers
+	// (e.g. go/tests' TestAllServices) keep using the same *Client
+	// afterward and expect it to still be opsadmin, not local-user.
+	opsadminToken := client.token
+
+	fmt.Println("Re-authenticating as the local-user (customer role)...")
+	if err := client.Authenticate("local-user", localUserPassword); err != nil {
+		return fmt.Errorf("re-authenticate as local-user: %w", err)
+	}
+
+	fmt.Println("Seeding Categories...")
+	if err := seedCategoriesData(client); err != nil {
+		return err
+	}
+
 	fmt.Println("Seeding Image Refs (this project's own images, via ImgRefAdd)...")
 	if err := seedImageRefs(client); err != nil {
 		return err
 	}
 
+	client.token = opsadminToken
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/saichler/l8bus/go/overlay/vnic"
 	l8common "github.com/saichler/l8common/go/common"
+	scommon "github.com/saichler/l8secure-scan/go/secscan/common"
 	"github.com/saichler/l8secure-scan/go/secscan/scanner/resolver"
 	"github.com/saichler/l8secure-scan/go/secscan/scanner/scanloop"
 )
@@ -18,6 +19,13 @@ import (
 // uses is all that's needed here too.
 func main() {
 	resources := l8common.CreateResources("secscan-scanner-"+os.Getenv("HOSTNAME"), false)
+	// Types must be registered locally even though this process owns no
+	// ORM table -- verified against a real cluster: l8ql's query
+	// interpreter needs the type registered on THIS process's own
+	// introspector/registry to build/parse a query at all (GetEntitiesByQuery
+	// against ScanJob/ImageRef failed with "Cannot find node for table X"
+	// without this), not just on the backend that actually persists it.
+	scommon.RegisterSecscanTypes(resources)
 
 	nic := vnic.NewVirtualNetworkInterface(resources, nil)
 	nic.Start()

@@ -8,5 +8,7 @@ RUN go build -o secscan
 FROM saichler/secscan-postgres:latest AS final
 
 COPY --from=build /home/src/github.com/saichler/build/secscan /home/run/secscan
+COPY start.sh /home/run/start.sh
+RUN chmod +x /home/run/start.sh
 
-ENTRYPOINT ["/home/run/secscan"]
+ENTRYPOINT ["/home/run/start.sh"]

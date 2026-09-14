@@ -48,7 +48,7 @@ spec:
       containers:
         - name: secscan-vnet
           image: saichler/secscan-vnet:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33005
           env:
@@ -101,7 +101,7 @@ spec:
       containers:
         - name: secscan-log-vnet
           image: saichler/secscan-log-vnet:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33010
           env:
@@ -142,10 +142,18 @@ spec:
       labels:
         app: secscan
     spec:
+      # hostNetwork (KIND-only, verified necessary against a real cluster):
+      # KIND's default CNI (kindnet) doesn't forward the vnic's
+      # multicast-based vnet discovery across the pod-overlay/host-network
+      # boundary -- secscan-vnet uses hostNetwork:true, so secscan otherwise
+      # tries to dial its own pod IP for the vnet and gets connection
+      # refused. Matches ../l8alarms/k8s/l8alarms-kind.yaml's own real,
+      # already-documented fix for the identical issue.
+      hostNetwork: true
       containers:
         - name: secscan
           image: saichler/secscan:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
               valueFrom:
@@ -183,10 +191,13 @@ spec:
       labels:
         app: secscan-scanner
     spec:
+      # hostNetwork (KIND-only) -- same vnet-discovery reason as secscan
+      # above.
+      hostNetwork: true
       containers:
         - name: secscan-scanner
           image: saichler/secscan-scanner:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
               valueFrom:
@@ -233,7 +244,7 @@ spec:
       containers:
         - name: secscan-web
           image: saichler/secscan-web:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2790
           env:
@@ -285,7 +296,7 @@ spec:
       containers:
         - name: secscan-log-agent
           image: saichler/secscan-log-agent:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: LOGPATH
               value: /data/logs/secscan
