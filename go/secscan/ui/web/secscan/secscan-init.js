@@ -7,20 +7,16 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 (function() {
     'use strict';
 
-    // A user with no customer scope (opsadmin, PRD §4) must pick one
-    // before any customer-scoped module initializes -- otherwise every
-    // primary action just fails with "No customer context found for this
-    // session" (dashboard KPIs, Add Images, Export CSV, Scan Selected all
-    // read SecScan.getCurrentCustomerId() independently). Deferring the
-    // two Layer8DModuleFactory.create() calls below until a customer is
-    // confirmed avoids rendering those broken states at all for such a
-    // user; real customer-role logins already have a customer and this
-    // resolves synchronously (checkAndPrompt calls onReady immediately).
-    SecScanCustomerPicker.checkAndPrompt(function() {
-        initModules();
-    });
-
-    function initModules() {
+    // Exposed globally rather than self-invoked here: this whole file runs
+    // synchronously at <script> parse time, BEFORE app.js's
+    // DOMContentLoaded handler has awaited Layer8DConfig.load() -- calling
+    // SecScanCustomerPicker.checkAndPrompt() (and therefore
+    // Layer8DConfig.resolveEndpoint()) from here used to run against the
+    // default, unloaded apiPrefix ('', not '/scan'), a real bug that broke
+    // every fetch the customer picker and every module's table made.
+    // app.js calls window.initializeSecScanModules() itself, from inside
+    // its own already-config-loaded, already-customer-gated flow.
+    window.initializeSecScanModules = function() {
     // One Layer8ModuleConfigFactory namespace ('SecScan', secscan-config.js)
     // holds all four modules' modules{}/submodules[] config; one
     // Layer8DModuleFactory.create() call per flat top-level SECTION attaches
@@ -88,5 +84,5 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
         }
         origOpenAdd.call(SecScan, service);
     };
-    }
+    };
 })();

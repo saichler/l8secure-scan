@@ -124,19 +124,29 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // Load default section (Images -- the Image Groups dashboard, PRD
-    // §11.1) only once a customer is confirmed -- an unscoped user
-    // (opsadmin, PRD §4) must not have any section fetched/rendered, and
-    // no query fired (loadCategoryCache, KPI counts, table loads all
-    // happen inside sectionInitializers.images), until they've picked one
-    // via SecScanCustomerPicker. Verified as a real bug: this call used
-    // to run unconditionally here, so the whole dashboard loaded in the
-    // background behind the picker popup regardless of selection.
+    // initializeSecScanModules() (secscan-init.js) and the default section
+    // load both wait here, AFTER Layer8DConfig.load() above has resolved,
+    // and AFTER a customer is confirmed via SecScanCustomerPicker.
+    // Verified as a real bug: secscan-init.js used to call
+    // SecScanCustomerPicker.checkAndPrompt() itself, synchronously at
+    // <script> parse time -- before Layer8DConfig.load() had populated
+    // the real '/scan' apiPrefix, so Layer8DConfig.resolveEndpoint() built
+    // bare, unprefixed (404ing) URLs for the customer picker's own
+    // Customer fetch AND, since nothing could ever be selected, every
+    // module's Layer8DModuleFactory.create() call (gated on the same
+    // unresolvable checkAndPrompt) never ran at all -- an empty picker
+    // AND empty content in every section, from one root cause.
     if (typeof SecScanCustomerPicker !== 'undefined') {
         SecScanCustomerPicker.checkAndPrompt(function() {
+            if (typeof initializeSecScanModules === 'function') {
+                initializeSecScanModules();
+            }
             loadSection('images');
         });
     } else {
+        if (typeof initializeSecScanModules === 'function') {
+            initializeSecScanModules();
+        }
         loadSection('images');
     }
 });
