@@ -7,6 +7,20 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 (function() {
     'use strict';
 
+    // A user with no customer scope (opsadmin, PRD §4) must pick one
+    // before any customer-scoped module initializes -- otherwise every
+    // primary action just fails with "No customer context found for this
+    // session" (dashboard KPIs, Add Images, Export CSV, Scan Selected all
+    // read SecScan.getCurrentCustomerId() independently). Deferring the
+    // two Layer8DModuleFactory.create() calls below until a customer is
+    // confirmed avoids rendering those broken states at all for such a
+    // user; real customer-role logins already have a customer and this
+    // resolves synchronously (checkAndPrompt calls onReady immediately).
+    SecScanCustomerPicker.checkAndPrompt(function() {
+        initModules();
+    });
+
+    function initModules() {
     // One Layer8ModuleConfigFactory namespace ('SecScan', secscan-config.js)
     // holds both submodules' modules{}/submodules[] config; two
     // Layer8DModuleFactory.create() calls attach navigation/CRUD for each
@@ -56,4 +70,5 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
         }
         origOpenAdd.call(SecScan, service);
     };
+    }
 })();
