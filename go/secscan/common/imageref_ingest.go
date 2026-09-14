@@ -160,15 +160,27 @@ func findOrCreateImageGroup(customerId, imageName string, vnic ifs.IVNic) (strin
 
 	group := &secscan.ImageGroup{CustomerId: customerId, ImageName: imageName}
 	created, err := l8common.PostEntity(ImageGroupServiceName, ServiceArea, group, vnic)
-	vnic.Resources().Logger().Info("DEBUG findOrCreateImageGroup created=", fmt.Sprintf("%#v", created), " err=", err)
 	if err != nil {
 		return "", err
 	}
-	g, ok := created.(*secscan.ImageGroup)
-	if !ok || g == nil {
-		return "", errors.New("unexpected type returned creating ImageGroup")
+	if g, ok := created.(*secscan.ImageGroup); ok && g != nil && g.ImageGroupId != "" {
+		return g.ImageGroupId, nil
 	}
-	return g.ImageGroupId, nil
+	// PostEntity's local-handler fast path (this process owns ImageGroup's
+	// ORM) has been observed returning a value that doesn't type-assert
+	// back to *secscan.ImageGroup even on success -- same family of
+	// local-fast-path quirk as GetEntitiesByQuery's nil-slice-element
+	// issue (PrepareImageRef, above). The framework generates the ID by
+	// mutating the entity pointer we passed in, in place (ImageGroupService.go's
+	// comment: "common.GenerateID on POST is all that's needed" -- no
+	// custom Before hook sets it, so it must happen inside the generic
+	// POST pipeline against our own `group`), so fall back to that rather
+	// than trusting the return value's type.
+	vnic.Resources().Logger().Info("DEBUG findOrCreateImageGroup fallback: created=", fmt.Sprintf("%#v", created), " group.ImageGroupId=", group.ImageGroupId)
+	if group.ImageGroupId != "" {
+		return group.ImageGroupId, nil
+	}
+	return "", errors.New("unexpected type returned creating ImageGroup")
 }
 
 // RecomputeImageGroupCache is the single hook (PRD §7/§9) that maintains

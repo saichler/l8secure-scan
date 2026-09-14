@@ -12,10 +12,12 @@ import "fmt"
 
 const localCustomerID = "local"
 
-// This project's own images (PRD §16): 6 binaries + 2 base images. All
-// tagged :latest, matching ../l8secure/build-images.sh's own tagging
-// convention (the script this project is instructed to use for building
-// them, plans/PROGRESS.md Phase 7 note).
+// This project's own 6 project-specific images only (PRD §16), all tagged
+// :latest, matching ../l8secure/build-images.sh's own tagging convention.
+// NOT the 2 base/infra images (secscan-security, secscan-postgres) --
+// those embed compiled secrets (hashed passwords, JWT signing key/secret,
+// TLS private key) and must never be pushed to the public registry or
+// otherwise surfaced, seed data included (explicit user instruction).
 var projectImageRefs = []string{
 	"saichler/secscan:latest",
 	"saichler/secscan-web:latest",
@@ -23,8 +25,6 @@ var projectImageRefs = []string{
 	"saichler/secscan-scanner:latest",
 	"saichler/secscan-log-vnet:latest",
 	"saichler/secscan-log-agent:latest",
-	"saichler/secscan-security:latest",
-	"saichler/secscan-postgres:latest",
 }
 
 var seedCategories = []map[string]interface{}{
