@@ -1,0 +1,65 @@
+<!--
+© 2025 Sharon Aicler (saichler@gmail.com)
+
+Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
+-->
+<div class="section-container" id="dashboard-section">
+    <div id="nav-stats" class="nav-stats-grid">
+        <div class="nav-stat-card">
+            <div class="nav-stat-content">
+                <div class="nav-stat-value" id="stat-groups">-</div>
+                <div class="nav-stat-label">Image Groups</div>
+            </div>
+        </div>
+        <div class="nav-stat-card">
+            <div class="nav-stat-content">
+                <div class="nav-stat-value" id="stat-pending">-</div>
+                <div class="nav-stat-label">Pending Scans</div>
+            </div>
+        </div>
+        <div class="nav-stat-card">
+            <div class="nav-stat-content">
+                <div class="nav-stat-value" id="stat-critical">-</div>
+                <div class="nav-stat-label">Critical CVEs</div>
+            </div>
+        </div>
+        <div class="nav-stat-card">
+            <div class="nav-stat-content">
+                <div class="nav-stat-value" id="stat-unscanned">-</div>
+                <div class="nav-stat-label">Not Yet Scanned</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="nav-content"></div>
+</div>
+
+<script>
+function initMobileDashboard() {
+    loadDashboardStats();
+    Layer8MNav.showHome();
+}
+
+function loadDashboardStats() {
+    const customerId = SecScan.getCurrentCustomerId();
+    if (!customerId) {
+        ['stat-groups', 'stat-pending', 'stat-critical', 'stat-unscanned'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = '0';
+        });
+        return;
+    }
+    SecScan.loadKpis(customerId).then(function(kpis) {
+        var map = {
+            'stat-groups': kpis.totalGroups,
+            'stat-pending': kpis.pendingScans,
+            'stat-critical': kpis.criticalCves,
+            'stat-unscanned': kpis.unscannedGroups
+        };
+        Object.keys(map).forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = map[id];
+        });
+    });
+}
+</script>

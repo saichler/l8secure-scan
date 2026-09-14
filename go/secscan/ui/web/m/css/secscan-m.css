@@ -1,0 +1,231 @@
+/*
+© 2025 Sharon Aicler (saichler@gmail.com)
+
+Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
+*/
+
+/* App shell (header/sidebar/content-area) -- no shared l8ui mobile CSS
+   provides this (verified: l8ui/m/css/ only has component CSS, every real
+   project hand-authors its own shell, e.g. l8erp's app-base/app-header/
+   app-nav/app-sidebar.css). Consolidated into one file for this smaller
+   project. .nav-card*/.nav-stat*/.nav-empty-state classes below are
+   already styled by l8ui/m/css/layer8m-nav-cards.css -- not redefined here. */
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--layer8d-bg-page, #f8fafc);
+    color: var(--layer8d-text-dark, #1a202c);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+/* Header */
+.mobile-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--layer8d-bg-white, #fff);
+    border-bottom: 1px solid var(--layer8d-border, #e2e8f0);
+    z-index: 20;
+}
+
+.header-menu-btn, .header-action-btn {
+    background: none;
+    border: none;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--layer8d-text-medium, #4a5568);
+    cursor: pointer;
+}
+
+.header-menu-btn svg, .header-action-btn svg { width: 22px; height: 22px; }
+
+.header-logo { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.header-logo img { width: 24px; height: 24px; }
+.header-logo-text {
+    font-weight: 700;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.header-actions { display: flex; align-items: center; gap: 4px; }
+
+/* Sidebar */
+.sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 29;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+.sidebar-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.mobile-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 84vw;
+    background: var(--layer8d-bg-white, #fff);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+}
+.mobile-sidebar.open { transform: translateX(0); }
+
+.sidebar-header { padding: 16px; border-bottom: 1px solid var(--layer8d-border, #e2e8f0); }
+.sidebar-logo { display: flex; align-items: center; gap: 10px; }
+.sidebar-logo img { width: 28px; height: 28px; }
+.sidebar-logo-text { font-weight: 700; font-size: 16px; }
+
+.sidebar-nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.sidebar-section { padding: 8px 0; }
+.sidebar-section-title {
+    padding: 6px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--layer8d-text-light, #a0aec0);
+}
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    text-decoration: none;
+    color: var(--layer8d-text-dark, #1a202c);
+    font-size: 14px;
+}
+.sidebar-item.active { background: var(--layer8d-bg-light, #f1f5f9); font-weight: 600; }
+.sidebar-item-icon { font-size: 18px; width: 22px; text-align: center; }
+
+.sidebar-user {
+    border-top: 1px solid var(--layer8d-border, #e2e8f0);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.sidebar-user-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sidebar-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--layer8d-primary, #0ea5e9);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex: none;
+}
+.sidebar-user-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid var(--layer8d-border, #e2e8f0);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--layer8d-text-medium, #4a5568);
+    cursor: pointer;
+}
+
+/* Content */
+.main-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#content-area { padding: 12px; transition: opacity 0.2s ease; }
+.loading { text-align: center; padding: 40px; color: var(--layer8d-text-light, #a0aec0); }
+
+/* Status badges (Layer8MRenderers.createStatusRenderer output, and
+   Layer8MTable/Layer8MEditTable's own generic statusField badge) */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.status-badge.mobile-status-pending, .status-badge.status-pending { background: #fef3c7; color: #92400e; }
+.status-badge.mobile-status-active, .status-badge.status-active { background: #d1fae5; color: #065f46; }
+.status-badge.mobile-status-terminated, .status-badge.status-terminated { background: #fee2e2; color: #991b1b; }
+.status-badge.mobile-status-warning { background: #fef3c7; color: #92400e; }
+.status-badge.mobile-status-inactive, .status-badge.status-inactive { background: #f1f5f9; color: #64748b; }
+.status-badge.mobile-status-default { background: #f1f5f9; color: #64748b; }
+/* Generic pipeline assumes a 'status' field exists on every non-readOnly
+   model (Layer8MNavData.loadServiceData); ImageCategory/Customer/L8Role/
+   L8Credentials have none, so it always resolves to 'offline'/'Unknown' --
+   suppressed here rather than showing a meaningless badge on every card. */
+.status-badge.status-offline { display: none; }
+
+/* Project-specific: Group Detail / Vulnerability Detail popups */
+.secscan-m-group-header { margin-bottom: 12px; }
+.secscan-m-category-row {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--layer8d-bg-light, #f1f5f9);
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+.secscan-m-category-label { font-weight: 600; }
+.secscan-m-category-tap-hint { color: var(--layer8d-text-light, #a0aec0); font-size: 12px; margin-left: 6px; }
+
+.secscan-m-trend-table, .secscan-m-vuln-summary table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+.secscan-m-trend-table th, .secscan-m-trend-table td,
+.secscan-m-vuln-summary th, .secscan-m-vuln-summary td {
+    padding: 6px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--layer8d-border, #e2e8f0);
+}
+.secscan-m-trend-empty { font-size: 12px; color: var(--layer8d-text-light, #a0aec0); }
+
+.secscan-m-group-toolbar { margin-bottom: 8px; }
+.secscan-m-ref-select-label { display: flex; align-items: center; gap: 6px; }
+
+/* Project-specific: Image Groups list (customInit view) */
+.secscan-m-kpi-strip.secscan-m-kpi-loading {
+    padding: 16px;
+    text-align: center;
+    color: var(--layer8d-text-light, #a0aec0);
+    font-size: 13px;
+}
+.secscan-m-groups-toolbar {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0 12px;
+    flex-wrap: wrap;
+}
+
+.secscan-m-add-images-summary ul { padding-left: 18px; margin: 6px 0 12px; font-size: 13px; }

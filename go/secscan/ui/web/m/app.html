@@ -1,0 +1,230 @@
+<!--
+© 2025 Sharon Aicler (saichler@gmail.com)
+
+Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#0ea5e9">
+    <title>Layer 8 Secure Scan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="../l8ui/images/logo.gif">
+    <link rel="apple-touch-icon" href="../l8ui/images/logo.gif">
+
+    <!-- Theme (tokens first, then shared classes) -->
+    <link rel="stylesheet" href="../l8ui/shared/layer8d-theme-tokens.css">
+    <link rel="stylesheet" href="../l8ui/shared/layer8d-theme.css">
+    <!-- App Shell CSS -->
+    <link rel="stylesheet" href="css/secscan-m.css">
+    <!-- Mobile Component CSS -->
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-popup.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-confirm.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-table.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-edit-table.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-forms.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-forms-tabs.css">
+    <link rel="stylesheet" href="../l8ui/shared/layer8d-form-fields.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-datepicker.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-reference-picker.css">
+    <link rel="stylesheet" href="../l8ui/m/css/layer8m-nav-cards.css">
+    <link rel="stylesheet" href="../l8ui/shared/layer8-print.css" media="print">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="mobile-header">
+            <button class="header-menu-btn" id="menu-toggle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <div class="header-logo">
+                <img src="../l8ui/images/logo.gif" alt="Layer 8 Secure Scan">
+                <span class="header-logo-text">Secure Scan</span>
+            </div>
+            <div class="header-actions">
+                <button class="header-action-btn" id="refresh-btn" title="Refresh">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6"></path>
+                        <path d="M1 20v-6h6"></path>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+        <!-- Sidebar -->
+        <aside class="mobile-sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <img src="../l8ui/images/logo.gif" alt="Layer 8 Secure Scan">
+                    <span class="sidebar-logo-text">Secure Scan</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Main</div>
+                    <a href="#dashboard" class="sidebar-item active" data-section="dashboard">
+                        <span class="sidebar-item-icon">&#x1F4CA;</span>
+                        Dashboard
+                    </a>
+                </div>
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Secure Scan</div>
+                    <a href="#dashboard" class="sidebar-item" data-section="dashboard" data-module="vulnmgmt">
+                        <span class="sidebar-item-icon">&#x1F6E1;&#xFE0F;</span>
+                        Vulnerability Management
+                    </a>
+                    <a href="#dashboard" class="sidebar-item" data-section="dashboard" data-module="admin" id="admin-nav-item">
+                        <span class="sidebar-item-icon">&#x2699;&#xFE0F;</span>
+                        Administration
+                    </a>
+                    <a href="#dashboard" class="sidebar-item" data-section="dashboard" data-module="system">
+                        <span class="sidebar-item-icon">&#x1F527;</span>
+                        System
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="sidebar-user-info">
+                    <div class="sidebar-avatar" id="user-avatar">U</div>
+                    <div class="sidebar-user-details">
+                        <div class="sidebar-user-name" id="user-name">User</div>
+                    </div>
+                </div>
+                <button class="sidebar-logout-btn" onclick="MobileApp.logout()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div id="content-area">
+                <div class="loading">Loading</div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts - Core -->
+    <script src="../l8ui/shared/layer8d-theme-switcher.js"></script>
+    <script>Layer8DThemeSwitcher.init();</script>
+    <script src="../l8ui/m/js/layer8m-config.js"></script>
+    <script src="../l8ui/m/js/layer8m-auth.js"></script>
+    <script src="../l8ui/m/js/layer8m-utils.js"></script>
+    <!-- Shared Desktop Utilities (needed to reuse desktop secscan enum/column/form files verbatim, PRD §11.7) -->
+    <script src="../l8ui/shared/layer8d-utils.js"></script>
+    <script src="../l8ui/shared/layer8d-renderers.js"></script>
+    <!-- Factory Components (load before module scripts) -->
+    <script src="../l8ui/shared/layer8-enum-factory.js"></script>
+    <script src="../l8ui/shared/layer8-ref-factory.js"></script>
+    <script src="../l8ui/shared/layer8-column-factory.js"></script>
+    <script src="../l8ui/shared/layer8-form-factory.js"></script>
+    <script src="../l8ui/shared/layer8-form-factory-presets.js"></script>
+    <script src="../l8ui/m/js/layer8m-module-registry.js"></script>
+    <script src="../l8ui/m/js/layer8m-popup.js"></script>
+    <script src="../l8ui/m/js/layer8m-confirm.js"></script>
+    <script src="../l8ui/m/js/layer8m-data-source.js"></script>
+    <script src="../l8ui/m/js/layer8m-table.js"></script>
+    <script src="../l8ui/m/js/layer8m-edit-table.js"></script>
+    <!-- Export Components (CSV only used by our own export-csv-report-m.js trick; excel/pdf inert-safe if bundled, matches desktop) -->
+    <script src="../l8ui/shared/layer8-csv-export.js"></script>
+    <script src="../l8ui/shared/layer8-excel-export.js"></script>
+    <script src="../l8ui/shared/layer8-pdf-export.js"></script>
+    <script src="../l8ui/shared/layer8-export-helper.js"></script>
+    <script src="../l8ui/m/js/layer8m-view-factory.js"></script>
+    <!-- Forms Component -->
+    <script src="../l8ui/m/js/layer8m-forms-fields.js"></script>
+    <script src="../l8ui/m/js/layer8m-forms-fields-reference.js"></script>
+    <script src="../l8ui/m/js/layer8m-forms-fields-ext.js"></script>
+    <script src="../l8ui/m/js/layer8m-forms.js"></script>
+    <script src="../l8ui/m/js/layer8m-forms-inline.js"></script>
+    <script src="../l8ui/m/js/layer8m-datepicker.js"></script>
+    <!-- Reference Registry + Picker -->
+    <script src="../l8ui/m/js/layer8m-reference-registry.js"></script>
+    <script src="../l8ui/shared/layer8-reference-config-resolver.js"></script>
+    <script src="../l8ui/m/js/layer8m-reference-picker.js"></script>
+    <!-- Shared Renderers -->
+    <script src="../l8ui/m/js/layer8m-renderers.js"></script>
+
+    <!-- SecScan: reuse desktop's own enum/column/form files verbatim (same
+         real convention l8erp's own mobile HCM module uses for "popup
+         content parity" -- ../hcm/core-hr/core-hr-columns.js etc). -->
+    <script src="../secscan/secscan-session.js"></script>
+    <script src="../secscan/vulnmgmt/trend-utils.js"></script>
+    <script src="../secscan/vulnmgmt/groups-enums.js"></script>
+    <script src="../secscan/vulnmgmt/groups-columns.js"></script>
+    <script src="../secscan/vulnmgmt/groups-forms.js"></script>
+    <script src="../secscan/vulnmgmt/categories-enums.js"></script>
+    <script src="../secscan/vulnmgmt/categories-columns.js"></script>
+    <script src="../secscan/vulnmgmt/categories-forms.js"></script>
+    <script src="../secscan/vulnmgmt/scanjobs-enums.js"></script>
+    <script src="../secscan/vulnmgmt/scanjobs-columns.js"></script>
+    <script src="../secscan/vulnmgmt/scanjobs-forms.js"></script>
+    <script src="../secscan/admin/customers-enums.js"></script>
+    <script src="../secscan/admin/customers-columns.js"></script>
+    <script src="../secscan/admin/customers-forms.js"></script>
+
+    <!-- SYS: Canonical l8security files (enums before columns before forms) -->
+    <script src="../l8ui/sys/security/l8security-enums.js"></script>
+    <script src="../l8ui/sys/security/l8security-columns.js"></script>
+    <script src="../l8ui/sys/security/l8security-forms.js"></script>
+
+    <!-- SecScan Mobile: decoration + custom behavior -->
+    <script src="js/secscan/vulnmgmt/kpis-m.js"></script>
+    <script src="js/secscan/vulnmgmt/category-cache-m.js"></script>
+    <script src="js/secscan/vulnmgmt/groups-columns-m.js"></script>
+    <script src="js/secscan/vulnmgmt/groups-forms-m.js"></script>
+    <script src="js/secscan/vulnmgmt/categories-columns-m.js"></script>
+    <script src="js/secscan/vulnmgmt/categories-forms-m.js"></script>
+    <script src="js/secscan/vulnmgmt/scanjobs-columns-m.js"></script>
+    <script src="js/secscan/vulnmgmt/scanjobs-forms-m.js"></script>
+    <script src="js/secscan/admin/customers-columns-m.js"></script>
+    <script src="js/secscan/admin/customers-forms-m.js"></script>
+    <script src="js/secscan/system/health-columns-m.js"></script>
+    <script src="js/secscan/system/sys-index-m.js"></script>
+    <script src="js/secscan/secscan-registry-m.js"></script>
+    <script src="js/secscan/vulnmgmt/vuln-detail-m.js"></script>
+    <script src="js/secscan/vulnmgmt/group-detail-m.js"></script>
+    <script src="js/secscan/vulnmgmt/add-category-m.js"></script>
+    <script src="js/secscan/vulnmgmt/add-images-m.js"></script>
+    <script src="js/secscan/vulnmgmt/export-csv-report-m.js"></script>
+    <script src="js/secscan/vulnmgmt/groups-view-m.js"></script>
+
+    <!-- Navigation Core (generic) -->
+    <script src="../l8ui/m/js/layer8m-nav-crud.js"></script>
+    <script src="../l8ui/m/js/layer8m-nav-data.js"></script>
+    <script src="../l8ui/m/js/layer8m-nav.js"></script>
+
+    <!-- Navigation Config (project-specific) -->
+    <script src="nav-configs/layer8m-nav-config-secscan.js"></script>
+
+    <script src="js/app-core.js"></script>
+</body>
+</html>
