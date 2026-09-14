@@ -15,8 +15,10 @@ limitations under the License.
 // Section Navigation and Loading Module
 
 // Section mapping to HTML files -- one flat top-level section per sidebar
-// nav item (Images, Scan History, Categories, Customers, Reports, System).
+// nav item (Dashboard, Images, Scan History, Categories, Customers,
+// Reports, System).
 const sections = {
+    dashboard: 'sections/dashboard.html',
     images: 'sections/images.html',
     scanhistory: 'sections/scanhistory.html',
     categories: 'sections/categories.html',
@@ -27,15 +29,17 @@ const sections = {
 
 // Section initialization functions
 const sectionInitializers = {
+    dashboard: () => {
+        if (typeof initializeSecScanDashboard === 'function') {
+            initializeSecScanDashboard();
+        }
+    },
     images: () => {
         if (typeof SecScanVuln !== 'undefined' && SecScanVuln.loadCategoryCache) {
             SecScanVuln.loadCategoryCache();
         }
         if (typeof initializeSecScanImages === 'function') {
             initializeSecScanImages();
-        }
-        if (typeof SecScanDashboardKpis !== 'undefined') {
-            SecScanDashboardKpis.injectWhenReady(20);
         }
     },
     scanhistory: () => {

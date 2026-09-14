@@ -7,10 +7,6 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 /* L8UIThemeCompliance: --layer8d-* tokens only, no hardcoded colors, no
    [data-theme="dark"] blocks (theme.css handles dark mode centrally). */
 
-.secscan-dashboard-top {
-    margin-bottom: 16px;
-}
-
 .secscan-kpi-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -23,10 +19,19 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     padding: 12px 0;
 }
 
-.secscan-groups-toolbar {
+.secscan-dashboard-toolbar {
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+}
+
+.secscan-group-detail-toolbar {
+    margin-bottom: 12px;
+}
+
+.secscan-selection-hint {
+    color: var(--layer8d-text-medium);
+    font-size: 13px;
 }
 
 .secscan-group-detail-header {

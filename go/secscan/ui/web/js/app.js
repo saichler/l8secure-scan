@@ -141,12 +141,12 @@ document.addEventListener('DOMContentLoaded', async function() {
             if (typeof initializeSecScanModules === 'function') {
                 initializeSecScanModules();
             }
-            loadSection('images');
+            loadSection('dashboard');
         });
     } else {
         if (typeof initializeSecScanModules === 'function') {
             initializeSecScanModules();
         }
-        loadSection('images');
+        loadSection('dashboard');
     }
 });

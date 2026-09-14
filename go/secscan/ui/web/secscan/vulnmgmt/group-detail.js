@@ -7,11 +7,18 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 // Image Group Detail popup (PRD §11.3): header with editable Category +
 // Trend panel, an embedded ImageRef table (baseWhereClause-scoped, custom
 // checkbox multi-select -- Layer8DTable has no built-in row-selection,
-// verified), a "Scan Selected" toolbar action, and row click into
-// Vulnerability Detail. Composes two independently-real, documented APIs
-// (Layer8DPopup.show + Layer8DTable with baseWhereClause) that have no
-// prior combined precedent in the ecosystem (verified) via Layer8DPopup's
-// own documented onShow extension point.
+// verified), and row click into Vulnerability Detail. Composes two
+// independently-real, documented APIs (Layer8DPopup.show + Layer8DTable
+// with baseWhereClause) that have no prior combined precedent in the
+// ecosystem (verified) via Layer8DPopup's own documented onShow extension
+// point.
+//
+// Checkbox selection here writes into the shared, cross-popup/cross-page
+// SecScanImageSelection store (image-selection.js) rather than local
+// module state -- the actual "scan" trigger lives on the Dashboard's Scan
+// Images button now, not here, so a selection made while browsing one
+// group must survive closing this popup and opening another (or none at
+// all) before the user goes to Dashboard and presses Scan Images.
 window.SecScanGroupDetail = (function() {
     'use strict';
 
@@ -25,13 +32,11 @@ window.SecScanGroupDetail = (function() {
     ]);
     const renderScanStatus = Layer8DRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
 
-    let selectedIds = new Set();
     let currentGroupId = null;
     let refTable = null;
 
     function open(imageGroupId) {
         currentGroupId = imageGroupId;
-        selectedIds = new Set();
 
         fetchGroup(imageGroupId).then(function(group) {
             if (!group) {
@@ -55,7 +60,7 @@ window.SecScanGroupDetail = (function() {
     function render(group) {
         const html = headerHtml(group) +
             '<div class="secscan-group-detail-toolbar">' +
-            '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-selected-btn" disabled>Scan Selected</button>' +
+            '<span id="secscan-selection-hint" class="secscan-selection-hint"></span>' +
             '</div>' +
             '<div id="secscan-group-refs-table-container"></div>';
 
@@ -66,7 +71,7 @@ window.SecScanGroupDetail = (function() {
             showFooter: false,
             onShow: function(body) {
                 attachCategoryPicker(body, group);
-                attachScanSelected(body, group);
+                updateSelectionHint(body);
                 renderRefTable(body, group);
             }
         });
@@ -138,7 +143,10 @@ window.SecScanGroupDetail = (function() {
     function renderRefTable(body, group) {
         const columns = [
             ...Layer8ColumnFactory.custom('_select', '', function(item) {
-                return '<input type="checkbox" class="secscan-ref-select" data-id="' + item.imageRefId + '">';
+                const label = (item.repoName || '') + (item.tag ? ':' + item.tag : '');
+                const checked = SecScanImageSelection.has(item.imageRefId) ? ' checked' : '';
+                return '<input type="checkbox" class="secscan-ref-select" data-id="' + item.imageRefId +
+                    '" data-label="' + Layer8DUtils.escapeHtml(label) + '"' + checked + '>';
             }, { sortKey: false }),
             ...Layer8ColumnFactory.id('imageRefId'),
             ...Layer8ColumnFactory.col('repoName', 'Repo'),
@@ -185,12 +193,9 @@ window.SecScanGroupDetail = (function() {
                 if (e.target && e.target.classList.contains('secscan-ref-select')) {
                     e.stopPropagation();
                     const id = e.target.getAttribute('data-id');
-                    if (e.target.checked) {
-                        selectedIds.add(id);
-                    } else {
-                        selectedIds.delete(id);
-                    }
-                    updateScanButton(body);
+                    const label = e.target.getAttribute('data-label');
+                    SecScanImageSelection.toggle(id, label);
+                    updateSelectionHint(body);
                 }
             });
             // Row click on the checkbox cell itself shouldn't also open Vulnerability Detail.
@@ -208,40 +213,16 @@ window.SecScanGroupDetail = (function() {
         return (v === undefined || v === null) ? '' : String(v);
     }
 
-    function updateScanButton(body) {
-        const btn = body.querySelector('#secscan-scan-selected-btn');
-        if (btn) btn.disabled = selectedIds.size === 0;
-    }
-
-    function attachScanSelected(body, group) {
-        const btn = body.querySelector('#secscan-scan-selected-btn');
-        if (!btn) return;
-        btn.addEventListener('click', function() {
-            if (selectedIds.size === 0) return;
-            const customerId = SecScan.getCurrentCustomerId();
-            if (!customerId) {
-                Layer8DNotification.error('No customer context found for this session');
-                return;
-            }
-            const payload = { customerId: customerId, imageRefIds: Array.from(selectedIds) };
-            makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ScanJob'), {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            }).then(function(resp) {
-                if (!resp || !resp.ok) {
-                    return (resp ? resp.text() : Promise.resolve('Scan request failed')).then(function(t) {
-                        throw new Error(t || 'Scan request failed');
-                    });
-                }
-                Layer8DNotification.success('Scan job queued');
-                selectedIds = new Set();
-                updateScanButton(body);
-                if (refTable) refTable.fetchData(1, refTable.pageSize);
-            }).catch(function(err) {
-                console.error('Scan Selected error:', err);
-                Layer8DNotification.error('Failed to queue scan: ' + err.message);
-            });
-        });
+    // Shows the running cross-popup/cross-page selection count -- the
+    // actual scan trigger is the Dashboard's Scan Images button, not
+    // anything in this popup, so this is feedback only.
+    function updateSelectionHint(body) {
+        const el = body.querySelector('#secscan-selection-hint');
+        if (!el) return;
+        const n = SecScanImageSelection.count();
+        el.textContent = n === 0
+            ? 'Select images below, then go to Dashboard to scan them.'
+            : n + ' image' + (n === 1 ? '' : 's') + ' selected for scanning (Dashboard → Scan Images).';
     }
 
     return { open: open };
