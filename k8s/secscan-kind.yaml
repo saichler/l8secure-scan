@@ -1,0 +1,309 @@
+# KIND mode (K8sRules): same shape as bare-metal, but no custom
+# StorageClass -- KIND ships its own default "standard" provisioner.
+#
+# Every DaemonSet from secscan-local.yaml becomes a StatefulSet with
+# podAntiAffinity (one pod per node, by hostname) + volumeClaimTemplates.
+# replicas:1 below matches kind-start.sh's 1 control-plane (tainted
+# NoSchedule) + 1 worker cluster -- a strict one-per-node anti-affinity
+# StatefulSet can't schedule more replicas than schedulable nodes.
+# secscan-scanner keeps its emptyDir (no durable state, identical across
+# all four modes, PRD §16).
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secscan
+  labels:
+    name: secscan
+
+---
+
+# secscan-vnet: was DaemonSet, now StatefulSet with anti-affinity for one-per-node
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan-vnet
+  labels:
+    app: secscan-vnet
+spec:
+  serviceName: secscan-vnet
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-vnet
+  template:
+    metadata:
+      labels:
+        app: secscan-vnet
+    spec:
+      hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: secscan-vnet
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: secscan-vnet
+          image: saichler/secscan-vnet:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 33005
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: hdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+
+# secscan-log-vnet: was DaemonSet, now StatefulSet with anti-affinity
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan-log-vnet
+  labels:
+    app: secscan-log-vnet
+spec:
+  serviceName: secscan-log-vnet
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-log-vnet
+  template:
+    metadata:
+      labels:
+        app: secscan-log-vnet
+    spec:
+      hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: secscan-log-vnet
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: secscan-log-vnet
+          image: saichler/secscan-log-vnet:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 33010
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: hdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan
+  labels:
+    app: secscan
+spec:
+  serviceName: secscan
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan
+  template:
+    metadata:
+      labels:
+        app: secscan
+    spec:
+      containers:
+        - name: secscan
+          image: saichler/secscan:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: hdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: secscan
+  name: secscan-scanner
+  labels:
+    app: secscan-scanner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-scanner
+  template:
+    metadata:
+      labels:
+        app: secscan-scanner
+    spec:
+      containers:
+        - name: secscan-scanner
+          image: saichler/secscan-scanner:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TRIVY_CACHE_DIR
+              value: /data
+          volumeMounts:
+            - name: trivy-cache
+              mountPath: /data
+      volumes:
+        - name: trivy-cache
+          emptyDir: {}
+
+---
+
+# secscan-web: was DaemonSet, now StatefulSet with anti-affinity
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan-web
+  labels:
+    app: secscan-web
+spec:
+  serviceName: secscan-web
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-web
+  template:
+    metadata:
+      labels:
+        app: secscan-web
+    spec:
+      hostNetwork: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: secscan-web
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: secscan-web
+          image: saichler/secscan-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2790
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: hdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi
+
+---
+
+# secscan-log-agent: was DaemonSet, now StatefulSet with anti-affinity
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan-log-agent
+  labels:
+    app: secscan-log-agent
+spec:
+  serviceName: secscan-log-agent
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-log-agent
+  template:
+    metadata:
+      labels:
+        app: secscan-log-agent
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: secscan-log-agent
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - name: secscan-log-agent
+          image: saichler/secscan-log-agent:latest
+          imagePullPolicy: Always
+          env:
+            - name: LOGPATH
+              value: /data/logs/secscan
+            - name: LOGFILE
+              value: "*"
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: hdata
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        storageClassName: standard
+        resources:
+          requests:
+            storage: 5Gi

@@ -1,0 +1,269 @@
+# GKE mode (K8sRules): StorageClass kubernetes.io/gce-pd (pd-standard),
+# reclaimPolicy:Retain. Single shared PVC (secscan-data, 50Gi) mounted by
+# every workload -- DaemonSets stay DaemonSets (no anti-affinity
+# conversion needed; a network-attached disk doesn't require one-pod-per-
+# node the way local storage does). secscan-scanner keeps its emptyDir (no
+# durable state, identical across all four modes, PRD §16).
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secscan
+  labels:
+    name: secscan
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: secscan-storage
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: secscan
+  name: secscan-data
+  labels:
+    app: secscan
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: secscan-storage
+  resources:
+    requests:
+      storage: 50Gi
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: secscan
+  name: secscan-vnet
+  labels:
+    app: secscan-vnet
+spec:
+  selector:
+    matchLabels:
+      app: secscan-vnet
+  template:
+    metadata:
+      labels:
+        app: secscan-vnet
+    spec:
+      hostNetwork: true
+      containers:
+        - name: secscan-vnet
+          image: saichler/secscan-vnet:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 33005
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: secscan-data
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: secscan
+  name: secscan-log-vnet
+  labels:
+    app: secscan-log-vnet
+spec:
+  selector:
+    matchLabels:
+      app: secscan-log-vnet
+  template:
+    metadata:
+      labels:
+        app: secscan-log-vnet
+    spec:
+      hostNetwork: true
+      containers:
+        - name: secscan-log-vnet
+          image: saichler/secscan-log-vnet:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 33010
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: secscan-data
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  namespace: secscan
+  name: secscan
+  labels:
+    app: secscan
+spec:
+  serviceName: secscan
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan
+  template:
+    metadata:
+      labels:
+        app: secscan
+    spec:
+      containers:
+        - name: secscan
+          image: saichler/secscan:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: secscan-data
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: secscan
+  name: secscan-scanner
+  labels:
+    app: secscan-scanner
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: secscan-scanner
+  template:
+    metadata:
+      labels:
+        app: secscan-scanner
+    spec:
+      containers:
+        - name: secscan-scanner
+          image: saichler/secscan-scanner:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: TRIVY_CACHE_DIR
+              value: /data
+          volumeMounts:
+            - name: trivy-cache
+              mountPath: /data
+      volumes:
+        - name: trivy-cache
+          emptyDir: {}
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: secscan
+  name: secscan-web
+  labels:
+    app: secscan-web
+spec:
+  selector:
+    matchLabels:
+      app: secscan-web
+  template:
+    metadata:
+      labels:
+        app: secscan-web
+    spec:
+      hostNetwork: true
+      containers:
+        - name: secscan-web
+          image: saichler/secscan-web:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 2790
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: secscan-data
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: secscan
+  name: secscan-log-agent
+  labels:
+    app: secscan-log-agent
+spec:
+  selector:
+    matchLabels:
+      app: secscan-log-agent
+  template:
+    metadata:
+      labels:
+        app: secscan-log-agent
+    spec:
+      containers:
+        - name: secscan-log-agent
+          image: saichler/secscan-log-agent:latest
+          imagePullPolicy: Always
+          env:
+            - name: LOGPATH
+              value: /data/logs/secscan
+            - name: LOGFILE
+              value: "*"
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: secscan-data
