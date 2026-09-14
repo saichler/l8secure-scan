@@ -56,12 +56,23 @@ func (this *ImgRefAdd) Post(elems ifs.IElements, vnic ifs.IVNic) ifs.IElements {
 			}
 			continue
 		}
-		createdRef, ok := created.(*secscan.ImageRef)
-		if !ok || createdRef == nil {
+
+		// PostEntity's local-handler fast path (this process owns
+		// ImageRef's ORM) has been observed returning a value that
+		// doesn't type-assert back to *secscan.ImageRef even on a
+		// successful create (same family of issue fixed in
+		// scommon.findOrCreateImageGroup) -- but ref.ImageRefId is
+		// already set by PrepareImageRef's Before() hook
+		// (l8common.GenerateID) before persistence even happens, so it's
+		// reliable regardless of what PostEntity's return value looks
+		// like.
+		if createdRef, ok := created.(*secscan.ImageRef); ok && createdRef != nil && createdRef.ImageRefId != "" {
+			resp.Created = append(resp.Created, createdRef.ImageRefId)
+		} else if ref.ImageRefId != "" {
+			resp.Created = append(resp.Created, ref.ImageRefId)
+		} else {
 			resp.Errors = append(resp.Errors, &secscan.ImgRefAddItem{Ref: line, Reason: "unexpected response creating ImageRef"})
-			continue
 		}
-		resp.Created = append(resp.Created, createdRef.ImageRefId)
 	}
 
 	return object.New(nil, resp)
