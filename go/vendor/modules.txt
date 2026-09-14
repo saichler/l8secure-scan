@@ -77,6 +77,7 @@ github.com/saichler/l8bus/go/overlay/health
 github.com/saichler/l8bus/go/overlay/metrics
 github.com/saichler/l8bus/go/overlay/plugins
 github.com/saichler/l8bus/go/overlay/protocol
+github.com/saichler/l8bus/go/overlay/vnet
 github.com/saichler/l8bus/go/overlay/vnic
 # github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2
 ## explicit
@@ -87,6 +88,9 @@ github.com/saichler/l8common/go/types/l8common
 github.com/saichler/l8events/go/services
 # github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
 ## explicit
+github.com/saichler/l8logfusion/go/agent/common
+github.com/saichler/l8logfusion/go/agent/logs
+github.com/saichler/l8logfusion/go/agent/logserver
 github.com/saichler/l8logfusion/go/types/l8logf
 # github.com/saichler/l8orm v0.0.0-20260613145442-8ef992eb7bcb
 ## explicit
@@ -96,6 +100,10 @@ github.com/saichler/l8orm/go/orm/persist
 github.com/saichler/l8orm/go/orm/plugins/postgres
 github.com/saichler/l8orm/go/orm/stmt
 github.com/saichler/l8orm/go/types/l8orms
+# github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a
+## explicit
+github.com/saichler/l8pollaris/go/pollaris/targets
+github.com/saichler/l8pollaris/go/types/l8tpollaris
 # github.com/saichler/l8ql v0.0.0-20260613133019-24b364d1e3d8
 ## explicit
 github.com/saichler/l8ql/go/gsql/interpreter
@@ -157,6 +165,9 @@ github.com/saichler/l8utils/go/utils/workers
 # github.com/saichler/l8web v0.0.0-20260726182518-5097b8cf253e
 ## explicit
 github.com/saichler/l8web/go/web/server
+# github.com/saichler/probler v0.0.0-20260523194022-a99896a9e09c
+## explicit
+github.com/saichler/probler/go/prob/common
 # github.com/sirupsen/logrus v1.9.4
 ## explicit; go 1.17
 github.com/sirupsen/logrus
