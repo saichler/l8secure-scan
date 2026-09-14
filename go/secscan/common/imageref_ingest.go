@@ -160,6 +160,7 @@ func findOrCreateImageGroup(customerId, imageName string, vnic ifs.IVNic) (strin
 
 	group := &secscan.ImageGroup{CustomerId: customerId, ImageName: imageName}
 	created, err := l8common.PostEntity(ImageGroupServiceName, ServiceArea, group, vnic)
+	vnic.Resources().Logger().Info("DEBUG findOrCreateImageGroup created=", fmt.Sprintf("%#v", created), " err=", err)
 	if err != nil {
 		return "", err
 	}
