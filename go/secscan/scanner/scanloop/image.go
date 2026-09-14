@@ -31,7 +31,7 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 		return false
 	}
 
-	report, err := runTrivy(ref.RepoName, ref.Tag, ref.Digest)
+	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest)
 	if err != nil {
 		return failImage(ref, err.Error(), vnic)
 	}

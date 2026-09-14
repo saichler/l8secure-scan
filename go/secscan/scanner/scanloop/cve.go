@@ -35,7 +35,7 @@ func findOrCreateCve(cveId string, severity secscan.Severity, title string, vnic
 // findings. Only called after Trivy has already succeeded and its output
 // parsed, so a failed scan attempt never wipes a previous successful
 // scan's findings.
-func replaceFindings(ref *secscan.ImageRef, report *trivyReport, vnic ifs.IVNic) error {
+func replaceFindings(ref *secscan.ImageRef, report *TrivyReport, vnic ifs.IVNic) error {
 	deleteQuery := fmt.Sprintf("select * from ImageRefCve where imageRefId='%s'", ref.ImageRefId)
 	if err := scommon.DeleteEntitiesByQuery(scommon.ImageRefCveServiceName, scommon.ServiceArea, deleteQuery, vnic); err != nil {
 		return err

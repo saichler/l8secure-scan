@@ -42,7 +42,7 @@ func work(item interface{}, vnic ifs.IVNic) {
 		return
 	}
 
-	created, err := lookupCreated(ref.RepoName, ref.Tag, ref.Digest)
+	created, err := LookupCreated(ref.RepoName, ref.Tag, ref.Digest)
 	if err != nil {
 		ref.ScanError = err.Error()
 	} else {
@@ -55,10 +55,17 @@ func work(item interface{}, vnic ifs.IVNic) {
 	}
 }
 
-// lookupCreated queries the registry (credentials already present on the
+// LookupCreated queries the registry (credentials already present on the
 // pod, PRD §13/§18) for the image's config Created timestamp, pure-Go via
 // go-containerregistry so the scanner pod needs no Docker daemon.
-func lookupCreated(repoName, tag, digest string) (int64, error) {
+// Exported as a reassignable var (default: the real implementation below)
+// so PRD §19's metadata-resolution tests can inject a fixture registry
+// client without calling any unexported function
+// (TestLocationAndApproach) -- tests only ever drive this through the
+// exported resolver.Run entry point.
+var LookupCreated = lookupCreatedRemote
+
+func lookupCreatedRemote(repoName, tag, digest string) (int64, error) {
 	refStr := repoName
 	switch {
 	case tag != "":

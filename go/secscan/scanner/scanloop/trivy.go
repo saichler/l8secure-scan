@@ -11,19 +11,23 @@ import (
 	"github.com/saichler/l8secure-scan/go/types/secscan"
 )
 
-// trivyReport is the minimal subset of `trivy image --format json` this
+// TrivyReport is the minimal subset of `trivy image --format json` this
 // project needs (VulnerabilityID/PkgName/InstalledVersion/FixedVersion/
 // Severity/Title, PRD §13.1) -- Trivy is invoked as an external CLI, not
-// linked as a Go library, so only these fields are modeled.
-type trivyReport struct {
-	Results []trivyResult `json:"Results"`
+// linked as a Go library, so only these fields are modeled. Exported (and
+// RunTrivy below is a reassignable var) so PRD §19's scan-pipeline tests
+// can inject a fixture Trivy payload deterministically without calling
+// any unexported function (TestLocationAndApproach) -- tests only ever
+// drive this through the exported scanloop.Run entry point.
+type TrivyReport struct {
+	Results []TrivyResult `json:"Results"`
 }
 
-type trivyResult struct {
-	Vulnerabilities []trivyVuln `json:"Vulnerabilities"`
+type TrivyResult struct {
+	Vulnerabilities []TrivyVuln `json:"Vulnerabilities"`
 }
 
-type trivyVuln struct {
+type TrivyVuln struct {
 	VulnerabilityID  string `json:"VulnerabilityID"`
 	PkgName          string `json:"PkgName"`
 	InstalledVersion string `json:"InstalledVersion"`
@@ -32,11 +36,15 @@ type trivyVuln struct {
 	Title            string `json:"Title"`
 }
 
-// runTrivy shells out to `trivy image --format json <target>` and parses
-// its output. tag takes precedence over digest when both/neither are
-// empty is a caller bug (PrepareImageRef always sets at least a tag from
-// a parsed reference, or the ref would never have been ingested).
-func runTrivy(repoName, tag, digest string) (*trivyReport, error) {
+// RunTrivy scans one image and defaults to the real `trivy` CLI
+// (runTrivyCLI below). Tests reassign it to a fixture function.
+var RunTrivy = runTrivyCLI
+
+// runTrivyCLI shells out to `trivy image --format json <target>` and
+// parses its output. tag takes precedence over digest when both/neither
+// are empty is a caller bug (PrepareImageRef always sets at least a tag
+// from a parsed reference, or the ref would never have been ingested).
+func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	target := repoName
 	switch {
 	case tag != "":
@@ -55,7 +63,7 @@ func runTrivy(repoName, tag, digest string) (*trivyReport, error) {
 		return nil, fmt.Errorf("trivy scan failed: %v: %s", err, strings.TrimSpace(stderr.String()))
 	}
 
-	report := &trivyReport{}
+	report := &TrivyReport{}
 	if err := json.Unmarshal(stdout.Bytes(), report); err != nil {
 		return nil, fmt.Errorf("failed to parse trivy output: %v", err)
 	}
@@ -98,7 +106,7 @@ func addSeverity(c *secscan.VulnerabilityCounts, sev secscan.Severity) {
 // countSeverities computes total_counts (every finding, duplicates across
 // packages included) and distinct_counts (unique VulnerabilityID) per
 // severity, PRD §13.1 step 2.
-func countSeverities(report *trivyReport) (total, distinct *secscan.VulnerabilityCounts) {
+func countSeverities(report *TrivyReport) (total, distinct *secscan.VulnerabilityCounts) {
 	total = &secscan.VulnerabilityCounts{}
 	distinct = &secscan.VulnerabilityCounts{}
 	seen := map[string]bool{}

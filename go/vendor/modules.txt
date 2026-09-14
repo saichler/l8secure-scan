@@ -131,12 +131,18 @@ github.com/saichler/l8services/go/services/transaction/states
 # github.com/saichler/l8srlz v0.0.0-20260322124809-505a0d08f95d
 ## explicit
 github.com/saichler/l8srlz/go/serialize/object
+# github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
+## explicit
+github.com/saichler/l8test/go/infra/t_resources
+github.com/saichler/l8test/go/infra/t_service
+github.com/saichler/l8test/go/infra/t_topology
 # github.com/saichler/l8types v0.0.0-20260809125345-ae67316219ee
 ## explicit
 github.com/saichler/l8types/go/aes
 github.com/saichler/l8types/go/ifs
 github.com/saichler/l8types/go/nets
 github.com/saichler/l8types/go/sec
+github.com/saichler/l8types/go/testtypes
 github.com/saichler/l8types/go/types/l8api
 github.com/saichler/l8types/go/types/l8events
 github.com/saichler/l8types/go/types/l8health
@@ -159,6 +165,7 @@ github.com/saichler/l8utils/go/utils/queues
 github.com/saichler/l8utils/go/utils/registry
 github.com/saichler/l8utils/go/utils/requests
 github.com/saichler/l8utils/go/utils/resources
+github.com/saichler/l8utils/go/utils/shared
 github.com/saichler/l8utils/go/utils/strings
 github.com/saichler/l8utils/go/utils/web
 github.com/saichler/l8utils/go/utils/workers

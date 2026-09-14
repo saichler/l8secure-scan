@@ -4,11 +4,13 @@ go 1.26.1
 
 require (
 	github.com/google/go-containerregistry v0.22.1
+	github.com/lib/pq v1.12.3
 	github.com/saichler/l8bus v0.0.0-20260524152159-cc0b5c210821
 	github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2
 	github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc
 	github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
 	github.com/saichler/l8srlz v0.0.0-20260322124809-505a0d08f95d
+	github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
 	github.com/saichler/l8types v0.0.0-20260809125345-ae67316219ee
 	github.com/saichler/l8utils v0.0.0-20260907163422-1397ebb1eafe
 	github.com/saichler/l8web v0.0.0-20260726182518-5097b8cf253e
@@ -21,7 +23,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
-	github.com/lib/pq v1.12.3 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/saichler/l8orm v0.0.0-20260613145442-8ef992eb7bcb // indirect

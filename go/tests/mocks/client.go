@@ -25,6 +25,13 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 	return &Client{baseURL: baseURL, client: httpClient}
 }
 
+// BaseURL returns the server address this client was constructed with --
+// used by go/tests to build a second Client against the same in-process
+// test web server (e.g. to authenticate as a different user).
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 func L8QueryText(queryText string) string {
 	q := map[string]interface{}{"text": queryText}
 	data, _ := json.Marshal(q)
