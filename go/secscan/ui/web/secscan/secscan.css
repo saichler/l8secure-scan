@@ -90,3 +90,27 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 .secscan-ref-select {
     cursor: pointer;
 }
+
+/* Each top-level nav section (Images, Categories, Scan History,
+   Customers) has exactly one module with exactly one service -- there is
+   nothing to switch between. Layer8SectionGenerator always renders the
+   module-tab bar and the service sub-nav whenever the list is non-empty,
+   regardless of length (verified: _generateModuleTabs/_generateSubnav in
+   l8ui/shared/layer8-section-generator.js only skip rendering when the
+   list is EMPTY, not when it has exactly one entry) -- hide that single-
+   item chrome here rather than in the shared framework file, since other
+   projects using it may have real multi-tab sections. */
+.l8-module-tabs:has(.l8-module-tab:only-child),
+.l8-subnav:has(.l8-subnav-item:only-child) {
+    display: none;
+}
+
+.secscan-reports-page {
+    padding: 24px;
+    max-width: 480px;
+}
+
+.secscan-reports-page p {
+    color: var(--layer8d-text-medium);
+    margin-bottom: 16px;
+}

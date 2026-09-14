@@ -61,6 +61,13 @@ async function makeAuthenticatedRequest(url, options = {}) {
 // Logout function
 function logout() {
     sessionStorage.removeItem('bearerToken');
+    // The next login may be a different user, or the same user needing to
+    // pick a different customer -- a stale userCustomer (set by
+    // SecScanCustomerPicker, secscan-session.js) must not silently skip
+    // the picker on the next login. Verified as a real bug: an unscoped
+    // (opsadmin) login that once picked a customer never saw the picker
+    // again on subsequent logins in the same browser tab.
+    sessionStorage.removeItem('userCustomer');
     localStorage.removeItem('bearerToken');
     localStorage.removeItem('rememberedUser');
     window.location.href = 'l8ui/login/index.html';
@@ -117,19 +124,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     });
 
-    // Load default section (Vulnerability Management -- the Image Groups
-    // dashboard, PRD §11.1) only once a customer is confirmed -- an
-    // unscoped user (opsadmin, PRD §4) must not have any section fetched/
-    // rendered, and no query fired (loadCategoryCache, KPI counts, table
-    // loads all happen inside sectionInitializers.vulnmgmt), until they've
-    // picked one via SecScanCustomerPicker. Verified as a real bug: this
-    // call used to run unconditionally here, so the whole dashboard loaded
-    // in the background behind the picker popup regardless of selection.
+    // Load default section (Images -- the Image Groups dashboard, PRD
+    // §11.1) only once a customer is confirmed -- an unscoped user
+    // (opsadmin, PRD §4) must not have any section fetched/rendered, and
+    // no query fired (loadCategoryCache, KPI counts, table loads all
+    // happen inside sectionInitializers.images), until they've picked one
+    // via SecScanCustomerPicker. Verified as a real bug: this call used
+    // to run unconditionally here, so the whole dashboard loaded in the
+    // background behind the picker popup regardless of selection.
     if (typeof SecScanCustomerPicker !== 'undefined') {
         SecScanCustomerPicker.checkAndPrompt(function() {
-            loadSection('vulnmgmt');
+            loadSection('images');
         });
     } else {
-        loadSection('vulnmgmt');
+        loadSection('images');
     }
 });

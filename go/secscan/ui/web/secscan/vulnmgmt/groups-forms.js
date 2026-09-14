@@ -22,8 +22,8 @@ window.SecScanVuln = window.SecScanVuln || {};
     // change, but it's edited via a reference picker in Group Detail's
     // header, not through this form.
     SecScanVuln.forms = SecScanVuln.forms || {};
-    SecScanVuln.forms.ImageGroup = f.form('Image Group', [
-        f.section('Group Details', [
+    SecScanVuln.forms.ImageGroup = f.form('Image', [
+        f.section('Image Details', [
             ...ro(f.text('imageName', 'Name')),
             ...ro(f.reference('categoryId', 'Category', 'ImageCategory')),
             ...ro(f.number('imageRefCount', 'Image Ref Count'))

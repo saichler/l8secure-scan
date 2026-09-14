@@ -14,29 +14,48 @@ limitations under the License.
 */
 // Section Navigation and Loading Module
 
-// Section mapping to HTML files
+// Section mapping to HTML files -- one flat top-level section per sidebar
+// nav item (Images, Scan History, Categories, Customers, Reports, System).
 const sections = {
-    vulnmgmt: 'sections/vulnmgmt.html',
-    admin: 'sections/admin.html',
+    images: 'sections/images.html',
+    scanhistory: 'sections/scanhistory.html',
+    categories: 'sections/categories.html',
+    customers: 'sections/customers.html',
+    reports: 'sections/reports.html',
     system: 'sections/system.html'
 };
 
 // Section initialization functions
 const sectionInitializers = {
-    vulnmgmt: () => {
+    images: () => {
         if (typeof SecScanVuln !== 'undefined' && SecScanVuln.loadCategoryCache) {
             SecScanVuln.loadCategoryCache();
         }
-        if (typeof initializeSecScanVuln === 'function') {
-            initializeSecScanVuln();
+        if (typeof initializeSecScanImages === 'function') {
+            initializeSecScanImages();
         }
         if (typeof SecScanDashboardKpis !== 'undefined') {
             SecScanDashboardKpis.injectWhenReady(20);
         }
     },
-    admin: () => {
-        if (typeof initializeSecScanAdmin === 'function') {
-            initializeSecScanAdmin();
+    scanhistory: () => {
+        if (typeof initializeSecScanScanHistory === 'function') {
+            initializeSecScanScanHistory();
+        }
+    },
+    categories: () => {
+        if (typeof initializeSecScanCategories === 'function') {
+            initializeSecScanCategories();
+        }
+    },
+    customers: () => {
+        if (typeof initializeSecScanCustomers === 'function') {
+            initializeSecScanCustomers();
+        }
+    },
+    reports: () => {
+        if (typeof initializeSecScanReports === 'function') {
+            initializeSecScanReports();
         }
     },
     system: () => {

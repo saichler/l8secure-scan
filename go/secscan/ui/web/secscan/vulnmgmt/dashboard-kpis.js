@@ -11,14 +11,17 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 // opts) directly instead, once per real computed KPI number.
 //
 // Layer8DTable has no generic "extra toolbar button" slot (verified: only
-// a single onAdd button). The Add Images / Export CSV Report buttons and
-// this KPI strip are injected directly above the 'groups' table's
-// container after the vulnmgmt section renders, following the
+// a single onAdd button). The Add Images button and this KPI strip are
+// injected directly above the 'groups' table's container after the
+// images section renders, following the
 // {moduleKey}-{serviceKey}-table-container id convention (AddingModule).
+// The Vulnerabilities Report export lives on its own Reports nav section
+// (reports-section.js), not here -- it's a cross-image report, not an
+// Images-table action.
 window.SecScanDashboardKpis = (function() {
     'use strict';
 
-    const GROUPS_CONTAINER_ID = 'vulnmgmt-groups-table-container';
+    const GROUPS_CONTAINER_ID = 'images-groups-table-container';
 
     function countOf(query) {
         const q = encodeURIComponent(JSON.stringify({ text: query }));
@@ -63,7 +66,7 @@ window.SecScanDashboardKpis = (function() {
 
     function renderStrip(kpis) {
         const cards = [
-            Layer8DWidget.render({ label: 'Image Groups', icon: 'icon-image' }, kpis.totalGroups, {}),
+            Layer8DWidget.render({ label: 'Images', icon: 'icon-image' }, kpis.totalGroups, {}),
             Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock' }, kpis.pendingScans, {}),
             Layer8DWidget.render({ label: 'Critical CVEs', icon: 'icon-alert' }, kpis.criticalCves, {}),
             Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question' }, kpis.unscannedGroups, {})
@@ -74,7 +77,6 @@ window.SecScanDashboardKpis = (function() {
     function renderToolbar() {
         return '<div class="secscan-groups-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
-            '<button class="layer8d-btn layer8d-btn-secondary layer8d-btn-small" id="secscan-export-report-btn">Export CSV Report</button>' +
             '</div>';
     }
 
@@ -93,9 +95,6 @@ window.SecScanDashboardKpis = (function() {
         wrap.querySelector('#secscan-add-images-btn').addEventListener('click', function() {
             if (typeof SecScanAddImages !== 'undefined') SecScanAddImages.open();
         });
-        wrap.querySelector('#secscan-export-report-btn').addEventListener('click', function() {
-            if (typeof SecScanExportReport !== 'undefined') SecScanExportReport.run();
-        });
 
         const customerId = SecScan.getCurrentCustomerId();
         if (!customerId) {
@@ -111,7 +110,7 @@ window.SecScanDashboardKpis = (function() {
     }
 
     // Section HTML loads via fetch+innerHTML (sections.js), then
-    // initializeSecScanVuln() runs synchronously, but Layer8DTable's own
+    // initializeSecScanImages() runs synchronously, but Layer8DTable's own
     // internal construction of the groups table happens on a schedule this
     // file doesn't control -- poll briefly for the container rather than
     // assume a fixed delay is always enough.

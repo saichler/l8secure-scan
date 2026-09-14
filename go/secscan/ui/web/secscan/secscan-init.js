@@ -22,27 +22,45 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 
     function initModules() {
     // One Layer8ModuleConfigFactory namespace ('SecScan', secscan-config.js)
-    // holds both submodules' modules{}/submodules[] config; two
-    // Layer8DModuleFactory.create() calls attach navigation/CRUD for each
-    // SECTION separately (vulnmgmt, admin) -- each call's sectionSelector
-    // must equal its own defaultModule (ModuleInitSectionSelector). Both
-    // calls share the same 'SecScan' namespace for CRUD/forms facade
-    // (harmless to attach twice) but validate only their own submodule.
+    // holds all four modules' modules{}/submodules[] config; one
+    // Layer8DModuleFactory.create() call per flat top-level SECTION attaches
+    // navigation/CRUD for it -- each call's sectionSelector must equal its
+    // own defaultModule (ModuleInitSectionSelector). All calls share the
+    // same 'SecScan' namespace for CRUD/forms facade (harmless to attach
+    // repeatedly) but validate only their own submodule.
     Layer8DModuleFactory.create({
         namespace: 'SecScan',
-        defaultModule: 'vulnmgmt',
+        defaultModule: 'images',
         defaultService: 'groups',
-        sectionSelector: 'vulnmgmt',
-        initializerName: 'initializeSecScanVuln',
+        sectionSelector: 'images',
+        initializerName: 'initializeSecScanImages',
         requiredNamespaces: ['SecScanVuln']
     });
 
     Layer8DModuleFactory.create({
         namespace: 'SecScan',
-        defaultModule: 'admin',
+        defaultModule: 'categories',
+        defaultService: 'categories',
+        sectionSelector: 'categories',
+        initializerName: 'initializeSecScanCategories',
+        requiredNamespaces: ['SecScanVuln']
+    });
+
+    Layer8DModuleFactory.create({
+        namespace: 'SecScan',
+        defaultModule: 'scanhistory',
+        defaultService: 'scanjobs',
+        sectionSelector: 'scanhistory',
+        initializerName: 'initializeSecScanScanHistory',
+        requiredNamespaces: ['SecScanVuln']
+    });
+
+    Layer8DModuleFactory.create({
+        namespace: 'SecScan',
+        defaultModule: 'customers',
         defaultService: 'customers',
-        sectionSelector: 'admin',
-        initializerName: 'initializeSecScanAdmin',
+        sectionSelector: 'customers',
+        initializerName: 'initializeSecScanCustomers',
         requiredNamespaces: ['SecScanAdmin']
     });
 
