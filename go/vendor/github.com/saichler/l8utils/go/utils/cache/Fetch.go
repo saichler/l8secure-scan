@@ -31,8 +31,11 @@ func (this *Cache) Fetch(start, blockSize int, q ifs.IQuery) ([]interface{}, *l8
 	// call, not just the first, so lastSeen keeps refreshing and an actively
 	// re-fetching client never goes stale against TTL eviction
 	// (l8utils/plans/generic-websocket-change-notifications.md Phase 3).
+	this.r.Logger().Info("DEBUG Cache.Fetch modelType=", this.modelType, " register=", q.Register(),
+		" aaaId=", q.AAAId(), " text=", q.Text())
 	if q.Register() && q.AAAId() != "" {
 		this.registerSubscription(q.AAAId(), q)
+		this.r.Logger().Info("DEBUG Cache.Fetch registered subscription for aaaId=", q.AAAId())
 	}
 
 	values, metadata := this.iCache.fetch(start, blockSize, q, this.r)

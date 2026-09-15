@@ -12,7 +12,7 @@ require (
 	github.com/saichler/l8srlz v0.0.0-20260322124809-505a0d08f95d
 	github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
 	github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc
-	github.com/saichler/l8utils v0.0.0-20260915142741-4a2cbee004d1
+	github.com/saichler/l8utils v0.0.0-20260915163141-cf88b178677b
 	github.com/saichler/l8web v0.0.0-20260915143157-60e7e88ca26b
 	google.golang.org/protobuf v1.36.12
 )
@@ -25,7 +25,7 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/saichler/l8orm v0.0.0-20260915143432-47cf740f2038 // indirect
+	github.com/saichler/l8orm v0.0.0-20260915163143-11fd7bd11f32 // indirect
 	github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a // indirect
 	github.com/saichler/l8ql v0.0.0-20260613133019-24b364d1e3d8 // indirect
 	github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 // indirect

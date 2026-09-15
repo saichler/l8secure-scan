@@ -57,8 +57,14 @@ func (this *OrmService) cachePost(element interface{}, notify bool, vnic ifs.IVN
 		return
 	}
 	_, cn, _ := this.cache.Post(element, notify)
+	if vnic != nil {
+		vnic.Resources().Logger().Info("DEBUG cachePost notify=", notify, " cn-nil=", cn == nil)
+	}
 	if notify && cn != nil && vnic != nil {
 		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
+		if vnic != nil {
+			vnic.Resources().Logger().Info("DEBUG cachePost multicast sent to websock area 0")
+		}
 	}
 }
 

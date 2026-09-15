@@ -33,10 +33,13 @@ func (this *Cache) createNotificationSet(t l8notify.L8NotificationType, key stri
 // AaaIds map is what tells WebSocketManager.OnNotification to broadcast to
 // every connected client, which would be wrong here.
 func (this *Cache) createClientNotification(delta *l8notify.L8NotificationSet, value interface{}) *l8notify.L8NotificationSet {
+	this.r.Logger().Info("DEBUG createClientNotification modelType=", this.modelType,
+		" delta-nil=", delta == nil, " hasSubscribers=", this.HasSubscribers())
 	if delta == nil || !this.HasSubscribers() {
 		return nil
 	}
 	aaaIds := this.matchingSubscriberAaaIds(value)
+	this.r.Logger().Info("DEBUG createClientNotification matched aaaIds=", aaaIds)
 	if len(aaaIds) == 0 {
 		return nil
 	}
@@ -73,11 +76,14 @@ func (this *Cache) createClientNotificationForPatch(item interface{}, key string
 // whose query matches value, or nil if none do.
 func (this *Cache) matchingSubscriberAaaIds(value interface{}) map[string]bool {
 	subs := this.Subscribers()
+	this.r.Logger().Info("DEBUG matchingSubscriberAaaIds modelType=", this.modelType, " subs=", len(subs))
 	if len(subs) == 0 {
 		return nil
 	}
 	var ids map[string]bool
 	for _, s := range subs {
+		matched := s.Query != nil && s.Query.Match(value)
+		this.r.Logger().Info("DEBUG matchingSubscriberAaaIds sub aaaId=", s.AAAId, " query-nil=", s.Query == nil, " matched=", matched)
 		if s.Query == nil || !s.Query.Match(value) {
 			continue
 		}
