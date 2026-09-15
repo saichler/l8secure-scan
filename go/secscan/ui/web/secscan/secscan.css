@@ -119,3 +119,27 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     color: var(--layer8d-text-medium);
     margin-bottom: 16px;
 }
+
+.secscan-scan-progress {
+    margin-bottom: 16px;
+}
+
+.secscan-scan-progress-bar {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--layer8d-border);
+    overflow: hidden;
+}
+
+.secscan-scan-progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--layer8d-primary);
+    transition: width 0.3s ease;
+}
+
+.secscan-scan-progress-label {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--layer8d-text-medium);
+}

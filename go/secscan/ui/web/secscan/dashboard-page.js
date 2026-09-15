@@ -71,13 +71,99 @@ window.SecScanDashboardKpis = (function() {
     function updateScanButton(count) {
         const btn = document.getElementById('secscan-scan-images-btn');
         if (!btn) return;
-        btn.disabled = count === 0;
-        btn.textContent = count === 0 ? 'Scan Images' : 'Scan Images (' + count + ')';
+        // Disabled while a scan is actively in progress too, not just
+        // when nothing is selected (activeJobId set below) -- avoids
+        // firing a second overlapping scan job from the same selection.
+        btn.disabled = count === 0 || activeJobId !== null;
+        if (activeJobId === null) {
+            btn.textContent = count === 0 ? 'Scan Images' : 'Scan Images (' + count + ')';
+        }
+    }
+
+    // --- Scan progress polling -------------------------------------------
+    // Runs independently of which section is currently visible (module-
+    // level state, not DOM-scoped) -- a scan started from the Dashboard
+    // must still finish and clear the selection even if the user
+    // navigates to Images while it's running. Rendering itself is a
+    // no-op when the Dashboard's progress element isn't in the DOM.
+
+    let activeJobId = null;
+    let pollTimer = null;
+    const POLL_MS = 1500;
+
+    function fetchScanJob(scanJobId) {
+        const q = encodeURIComponent(JSON.stringify({ text: "select * from ScanJob where scanJobId='" + scanJobId + "'" }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ScanJob?body=' + q))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) { return (data && data.list && data.list[0]) || null; });
+    }
+
+    // JobStatus enum (proto/secscan.proto): 1=QUEUED 2=RUNNING 3=COMPLETED
+    // 4=FAILED 5=PARTIAL.
+    function isTerminal(status) {
+        return status === 3 || status === 4 || status === 5;
+    }
+
+    function renderProgress(job) {
+        const wrap = document.getElementById('secscan-scan-progress');
+        if (!wrap) return; // Dashboard not currently rendered -- fine, polling continues regardless.
+        const total = job.totalImages || 1;
+        const done = (job.completedImages || 0) + (job.failedImages || 0);
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        wrap.hidden = false;
+        wrap.querySelector('.secscan-scan-progress-bar-fill').style.width = pct + '%';
+        wrap.querySelector('.secscan-scan-progress-label').textContent =
+            statusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
+            (job.failedImages ? ' (' + job.failedImages + ' failed)' : '');
+    }
+
+    function statusLabel(status) {
+        switch (status) {
+            case 1: return 'Queued';
+            case 2: return 'Scanning';
+            case 3: return 'Completed';
+            case 4: return 'Failed';
+            case 5: return 'Partially completed';
+            default: return 'Scanning';
+        }
+    }
+
+    function stopPolling() {
+        if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+    }
+
+    function startPolling(scanJobId) {
+        activeJobId = scanJobId;
+        stopPolling();
+        const tick = function() {
+            fetchScanJob(scanJobId).then(function(job) {
+                if (!job) return;
+                renderProgress(job);
+                if (isTerminal(job.status)) {
+                    stopPolling();
+                    activeJobId = null;
+                    SecScanImageSelection.clear();
+                    updateScanButton(SecScanImageSelection.count());
+                    loadStrip();
+                    const wrap = document.getElementById('secscan-scan-progress');
+                    if (wrap) {
+                        setTimeout(function() { wrap.hidden = true; }, 3000);
+                    }
+                }
+            }).catch(function(err) {
+                console.error('Scan progress poll failed:', err);
+            });
+        };
+        tick();
+        pollTimer = setInterval(tick, POLL_MS);
     }
 
     function scanSelected() {
         const ids = SecScanImageSelection.getIds();
-        if (ids.length === 0) return;
+        if (ids.length === 0 || activeJobId !== null) return;
         const customerId = SecScan.getCurrentCustomerId();
         if (!customerId) {
             Layer8DNotification.error('No customer context found for this session');
@@ -92,11 +178,17 @@ window.SecScanDashboardKpis = (function() {
                     throw new Error(t || 'Scan request failed');
                 });
             }
-            Layer8DNotification.success('Scanning ' + ids.length + ' image(s) — check Scan History for progress');
-            SecScanImageSelection.clear();
+            return resp.json();
+        }).then(function(job) {
+            if (!job || !job.scanJobId) {
+                throw new Error('No scan job returned');
+            }
+            Layer8DNotification.success('Scanning ' + ids.length + ' image(s)');
+            updateScanButton(SecScanImageSelection.count());
+            startPolling(job.scanJobId);
         }).catch(function(err) {
             console.error('Scan Images error:', err);
-            Layer8DNotification.error('Failed to queue scan: ' + err.message);
+            Layer8DNotification.error('Failed to start scan: ' + err.message);
         });
     }
 
@@ -110,6 +202,10 @@ window.SecScanDashboardKpis = (function() {
             '<div class="secscan-dashboard-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
+            '</div>' +
+            '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden>' +
+            '<div class="secscan-scan-progress-bar"><div class="secscan-scan-progress-bar-fill"></div></div>' +
+            '<div class="secscan-scan-progress-label"></div>' +
             '</div>'
     });
 
@@ -133,6 +229,12 @@ window.SecScanDashboardKpis = (function() {
             SecScanImageSelection.onChange(updateScanButton);
         }
         updateScanButton(SecScanImageSelection.count());
+        // Re-entering the Dashboard mid-scan (navigated away and back)
+        // should show the in-progress bar immediately, not wait for the
+        // next tick.
+        if (activeJobId) {
+            fetchScanJob(activeJobId).then(function(job) { if (job) renderProgress(job); });
+        }
         loadStrip();
     };
 
