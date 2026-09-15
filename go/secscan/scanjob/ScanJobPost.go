@@ -18,7 +18,7 @@ import (
 // HTTP response returns immediately with the created job; scanning continues
 // after (MainPackageMinimal -- no long-running work synchronously in the
 // handler).
-func (this *ScanJob) Post(elems ifs.IElements, vnic ifs.IVNic) ifs.IElements {
+func (this *ScanJobHandler) Post(elems ifs.IElements, vnic ifs.IVNic) ifs.IElements {
 	job, ok := elems.Element().(*secscan.ScanJob)
 	if !ok {
 		return object.NewError("invalid ScanJob type")
