@@ -15,7 +15,12 @@ import (
 )
 
 const (
-	pollInterval  = 10 * time.Second
+	// A newly created ScanJob waits up to pollInterval before the scanner
+	// picks it up -- 10s read as "queued, not immediate" when pressing
+	// Scan Images from the Dashboard. Short enough that a status=1 COUNT
+	// query every tick is negligible, but close enough to immediate for a
+	// human watching the UI after pressing the button.
+	pollInterval  = 2 * time.Second
 	jobPoolSize   = 2 // claimed ScanJobs processed concurrently
 	imagePoolSize = 4 // images within one job processed concurrently
 )

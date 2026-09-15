@@ -92,7 +92,7 @@ window.SecScanDashboardKpis = (function() {
                     throw new Error(t || 'Scan request failed');
                 });
             }
-            Layer8DNotification.success('Scan job queued for ' + ids.length + ' image(s)');
+            Layer8DNotification.success('Scanning ' + ids.length + ' image(s) — check Scan History for progress');
             SecScanImageSelection.clear();
         }).catch(function(err) {
             console.error('Scan Images error:', err);
