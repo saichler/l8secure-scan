@@ -84,5 +84,16 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
         }
         origOpenAdd.call(SecScan, service);
     };
+
+    // - ImageCategory Edit -> same customerId-injection gap as Add, just
+    //   never given the same override (edit-category.js).
+    var origOpenEdit = SecScan._openEditModal;
+    SecScan._openEditModal = function(service, id) {
+        if (service.model === 'ImageCategory' && typeof SecScanEditCategory !== 'undefined') {
+            SecScanEditCategory.open(id, function() { SecScan.refreshCurrentTable(); });
+            return;
+        }
+        origOpenEdit.call(SecScan, service, id);
+    };
     };
 })();
