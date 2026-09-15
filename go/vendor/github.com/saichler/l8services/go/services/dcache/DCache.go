@@ -23,6 +23,16 @@ import (
 	"github.com/saichler/l8utils/go/utils/queues"
 )
 
+// wsServiceName/wsServiceArea identify the generic browser-facing websocket
+// notification service (l8web.WsNotifyServiceName/WsNotifyServiceArea by
+// value -- redefined locally, same pattern used elsewhere in the ecosystem,
+// so this package gains no new dependency). See
+// l8utils/plans/generic-websocket-change-notifications.md.
+const (
+	wsServiceName = "websock"
+	wsServiceArea = byte(0)
+)
+
 // DCache implements the IDistributedCache interface, providing a thread-safe
 // distributed cache with notification support. It wraps the core cache and
 // manages a notification queue for broadcasting property change events.

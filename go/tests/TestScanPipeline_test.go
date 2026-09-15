@@ -14,8 +14,11 @@ import (
 
 // testScanPipeline exercises PRD §19's scan-pipeline scenario end to end,
 // via a fixture Trivy payload injected through scanloop.RunTrivy (the
-// exported seam added this phase -- the test only ever calls the real
-// exported scanloop.Run entry point, TestLocationAndApproach):
+// exported seam added this phase). Scanning is triggered the same way the
+// real Dashboard/mobile "Scan Selected" button does -- POST to the
+// stateless ScanJob action service, which kicks off scanloop.Run in the
+// background itself (plans/scanjob-live-progress.md) -- not a direct call
+// to scanloop.Run from the test:
 //   - total_counts/distinct_counts and ImageRef status transitions
 //   - ImageGroup.newestCounts/oldestCounts updating correctly, including
 //     the case where a newly-completed scan's buildDate is OLDER than the
@@ -71,18 +74,12 @@ func testScanPipeline(t *testing.T, vnic ifs.IVNic) {
 		return report, nil
 	}
 
-	// pollworker.Run ticks once immediately on entry, then again only
-	// after its 10s interval -- rather than wait out that interval, each
-	// job below gets its own short-lived Run/stop lifecycle so it's
-	// always the immediate tick that picks it up.
-
 	// Job A: scan mid + new first, leaving old unscanned -- oldest-among-
-	// scanned should be "mid" at this point.
+	// scanned should be "mid" at this point. postScanJob's POST triggers
+	// scanning immediately in the background (no poll delay) -- sleep long
+	// enough for both images' fixture "scans" to finish.
 	postScanJob(t, vnic, custID, []string{refMid.ImageRefId, refNew.ImageRefId})
-	stopA := make(chan struct{})
-	go scanloop.Run(vnic, stopA)
 	time.Sleep(4 * time.Second)
-	close(stopA)
 
 	assertImageRefScanned(t, vnic, refMid.ImageRefId, 1, 2)
 	assertImageRefScanned(t, vnic, refNew.ImageRefId, 0, 0)
@@ -101,10 +98,7 @@ func testScanPipeline(t *testing.T, vnic ifs.IVNic) {
 	// Job B: scan "old", whose buildDate is OLDER than "mid" -- the
 	// oldest-cache must MOVE to "old", not stay pinned on "mid".
 	postScanJob(t, vnic, custID, []string{refOld.ImageRefId})
-	stopB := make(chan struct{})
-	go scanloop.Run(vnic, stopB)
 	time.Sleep(4 * time.Second)
-	close(stopB)
 
 	assertImageRefScanned(t, vnic, refOld.ImageRefId, 1, 0)
 

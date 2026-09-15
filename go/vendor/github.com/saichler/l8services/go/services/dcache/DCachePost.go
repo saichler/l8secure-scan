@@ -14,6 +14,7 @@
 package dcache
 
 import (
+	"github.com/saichler/l8types/go/ifs"
 	"github.com/saichler/l8types/go/types/l8notify"
 )
 
@@ -22,9 +23,17 @@ import (
 // suppresses notification generation (used during replication to avoid loops).
 func (this *DCache) Post(v interface{}, sourceNotification ...bool) (*l8notify.L8NotificationSet, error) {
 	createNotification := !(sourceNotification != nil && len(sourceNotification) > 0 && sourceNotification[0])
-	n, _, e := this.cache.Post(v, createNotification)
+	n, cn, e := this.cache.Post(v, createNotification)
 	if this.listener != nil && createNotification && e == nil && n != nil {
 		this.nQueue.Add(n)
+	}
+	// this.listener is often the caller's own vnic (IVNic satisfies
+	// IServiceCacheListener) -- when it is, forward the client notification to
+	// the generic websocket service too. A nil listener (e.g. l8inventory)
+	// makes this a no-op, unchanged from today
+	// (l8utils/plans/generic-websocket-change-notifications.md Phase 1b).
+	if vnic, ok := this.listener.(ifs.IVNic); ok && cn != nil {
+		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
 	}
 	return n, e
 }

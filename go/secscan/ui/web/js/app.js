@@ -91,6 +91,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     localStorage.setItem('bearerToken', bearerToken);
     window.bearerToken = bearerToken;
 
+    // Connect real-time WebSocket for live data updates (same real pattern
+    // probler's app.js uses) -- was never called anywhere in this project
+    // before, so Layer8DWebSocket.subscribe() (Layer8DTable's realtime
+    // option, Layer8DProgressBar) had nothing to actually connect to
+    // (l8utils/plans/generic-websocket-change-notifications.md;
+    // plans/scanjob-live-progress.md Phase 5).
+    if (typeof Layer8DWebSocket !== 'undefined') {
+        Layer8DWebSocket.init();
+    }
+
     // Set username in header from current session
     const username = sessionStorage.getItem('currentUser') || 'User';
     document.querySelector('.username').textContent = username;

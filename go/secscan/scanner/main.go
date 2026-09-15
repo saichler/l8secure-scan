@@ -6,8 +6,8 @@ import (
 	"github.com/saichler/l8bus/go/overlay/vnic"
 	l8common "github.com/saichler/l8common/go/common"
 	scommon "github.com/saichler/l8secure-scan/go/secscan/common"
+	"github.com/saichler/l8secure-scan/go/secscan/scanjob"
 	"github.com/saichler/l8secure-scan/go/secscan/scanner/resolver"
-	"github.com/saichler/l8secure-scan/go/secscan/scanner/scanloop"
 )
 
 // secscan-scanner is a stateless worker (PRD §13) -- it owns no ORM and
@@ -33,7 +33,11 @@ func main() {
 
 	stop := make(chan struct{})
 	go resolver.Run(nic, stop)
-	go scanloop.Run(nic, stop)
+
+	// Stateless ScanJob action service (plans/scanjob-live-progress.md) --
+	// no poll/claim loop anymore; scanning is invoked directly from its
+	// Post handler.
+	scanjob.Activate(nic)
 
 	resources.Logger().Info("secscan-scanner started!")
 	l8common.WaitForSignal(resources)

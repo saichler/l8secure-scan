@@ -56,6 +56,10 @@ window.SecScanGroupDetail_M = (function() {
             '<div class="secscan-m-group-toolbar">' +
             '<button class="mobile-popup-btn mobile-popup-btn-save" id="secscan-m-scan-selected-btn" disabled>Scan Selected</button>' +
             '</div>' +
+            // Empty on purpose -- Layer8DProgressBar.attach() populates this
+            // container with its own generic markup (plans/scanjob-live-progress.md
+            // Phase 5-m).
+            '<div id="secscan-m-scan-progress" class="secscan-m-scan-progress" hidden></div>' +
             '<div id="secscan-m-group-refs-container"></div>';
 
         Layer8MPopup.show({
@@ -194,6 +198,45 @@ window.SecScanGroupDetail_M = (function() {
         }
     }
 
+    // JobStatus enum (proto/secscan.proto): 1=QUEUED (never set anymore --
+    // no poll/claim step left to queue behind) 2=RUNNING 3=COMPLETED
+    // 4=FAILED 5=PARTIAL.
+    function scanJobStatusLabel(status) {
+        switch (status) {
+            case 1: return 'Queued';
+            case 2: return 'Scanning';
+            case 3: return 'Completed';
+            case 4: return 'Failed';
+            case 5: return 'Partially completed';
+            default: return 'Scanning';
+        }
+    }
+
+    function scanJobProgress(job) {
+        const total = job.totalImages || 1;
+        const done = (job.completedImages || 0) + (job.failedImages || 0);
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        return {
+            percent: pct,
+            label: scanJobStatusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
+                (job.failedImages ? ' (' + job.failedImages + ' failed)' : ''),
+            done: job.status === 3 || job.status === 4 || job.status === 5
+        };
+    }
+
+    // ScanJobs is the renamed, ORM-backed persistence service -- the
+    // stateless ScanJob action service's own Get() is stubbed "not
+    // supported", so fetching a job's current status must target
+    // /60/ScanJobs, not /60/ScanJob (the POST-only endpoint below still
+    // uses). "register" in the query text registers this session's live
+    // subscription server-side
+    // (l8utils/plans/generic-websocket-change-notifications.md).
+    function fetchScanJob(scanJobId) {
+        const query = "select * from ScanJob where scanJobId='" + scanJobId + "' register";
+        return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ScanJobs?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
+            .then(function(data) { return (data && data.list && data.list[0]) || null; });
+    }
+
     function attachScanSelected(body, group) {
         const btn = body.querySelector('#secscan-m-scan-selected-btn');
         if (!btn) return;
@@ -204,15 +247,31 @@ window.SecScanGroupDetail_M = (function() {
                 Layer8MUtils.showError('No customer context found for this session');
                 return;
             }
-            Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ScanJob'), { customerId: customerId, imageRefIds: Array.from(selectedIds) })
-                .then(function() {
-                    Layer8MUtils.showSuccess('Scan job queued');
+            const ids = Array.from(selectedIds);
+            Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ScanJob'), { customerId: customerId, imageRefIds: ids })
+                .then(function(job) {
+                    if (!job || !job.scanJobId) {
+                        throw new Error('No scan job returned');
+                    }
+                    Layer8MUtils.showSuccess('Scanning ' + ids.length + ' image(s)');
                     selectedIds = new Set();
                     updateScanButton(body);
-                    if (refTable) refTable.refresh();
+                    const wrap = body.querySelector('#secscan-m-scan-progress');
+                    if (wrap && typeof Layer8DProgressBar !== 'undefined') {
+                        Layer8DProgressBar.attach(wrap, {
+                            modelType: 'ScanJob', // protobuf type name, not ServiceName
+                            primaryKey: job.scanJobId,
+                            fetchCurrent: function() { return fetchScanJob(job.scanJobId); },
+                            getProgress: scanJobProgress,
+                            onDone: function() {
+                                if (refTable) refTable.refresh();
+                                setTimeout(function() { wrap.hidden = true; }, 3000);
+                            }
+                        });
+                    }
                 }).catch(function(err) {
                     console.error('Scan Selected (mobile) error:', err);
-                    Layer8MUtils.showError('Failed to queue scan: ' + err.message);
+                    Layer8MUtils.showError('Failed to start scan: ' + err.message);
                 });
         });
     }

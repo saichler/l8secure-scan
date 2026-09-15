@@ -25,6 +25,16 @@ import (
 func (this *Cache) Fetch(start, blockSize int, q ifs.IQuery) ([]interface{}, *l8api.L8MetaData) {
 	this.mtx.Lock()
 	defer this.mtx.Unlock()
+
+	// Register (or refresh) this query as a live subscription whenever the
+	// caller opted in with register=true -- unconditional on every matching
+	// call, not just the first, so lastSeen keeps refreshing and an actively
+	// re-fetching client never goes stale against TTL eviction
+	// (l8utils/plans/generic-websocket-change-notifications.md Phase 3).
+	if q.Register() && q.AAAId() != "" {
+		this.registerSubscription(q.AAAId(), q)
+	}
+
 	values, metadata := this.iCache.fetch(start, blockSize, q, this.r)
 
 	// Aggregate queries return empty slice with results in metadata

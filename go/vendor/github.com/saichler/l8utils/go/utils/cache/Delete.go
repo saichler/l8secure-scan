@@ -58,5 +58,5 @@ func (this *Cache) Delete(v interface{}, createNotification bool) (*l8notify.L8N
 	}
 
 	n, e = this.createDeleteNotification(item, pk)
-	return n, this.createClientNotification(n), e
+	return n, this.createClientNotification(n, item), e
 }

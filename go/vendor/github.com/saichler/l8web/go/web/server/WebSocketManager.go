@@ -20,8 +20,11 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/saichler/l8srlz/go/serialize/object"
 	"github.com/saichler/l8types/go/ifs"
 	"github.com/saichler/l8types/go/types/l8notify"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 var upgrader = websocket.Upgrader{
@@ -145,6 +148,37 @@ func (this *WebSocketManager) OnNotification(notification *l8notify.L8Notificati
 		"modelType":  notification.ModelType,
 		"primaryKey": notification.ModelKey,
 	}
+
+	// Forward the actual record too, when it can be reconstructed, so the
+	// client's existing msg.record-aware handling (Layer8DTable's update
+	// branch) can patch the row in place instead of always re-fetching
+	// (l8utils/plans/generic-websocket-change-notifications.md Phase 4).
+	// This is the client notification (cn), not the cross-node delta
+	// notification (n) -- Cache.notifications.go always puts the *whole*
+	// item into NotificationList[0] regardless of action (even for Patch,
+	// which deliberately reuses the whole-item Add encoder, not a
+	// per-property encoding), so decode directly rather than reusing
+	// notify.ItemOf (which assumes per-property NotificationList entries
+	// for Patch, matching the *other*, differently-built notification).
+	if len(notification.NotificationList) > 0 {
+		entry := notification.NotificationList[0]
+		raw := entry.NewValue
+		if raw == nil {
+			raw = entry.OldValue // delete
+		}
+		if raw != nil {
+			obj := object.NewDecode(raw, 0, this.vnic.Resources().Registry())
+			if item, derr := obj.Get(); derr == nil && item != nil {
+				if pbItem, ok := item.(proto.Message); ok {
+					marshalOptions := protojson.MarshalOptions{UseEnumNumbers: true}
+					if recordJSON, merr := marshalOptions.Marshal(pbItem); merr == nil {
+						msg["record"] = json.RawMessage(recordJSON)
+					}
+				}
+			}
+		}
+	}
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return

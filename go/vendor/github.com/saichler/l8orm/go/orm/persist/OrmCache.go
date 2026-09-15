@@ -21,6 +21,16 @@ import (
 	"reflect"
 )
 
+// wsServiceName/wsServiceArea identify the generic browser-facing websocket
+// notification service (l8web.WsNotifyServiceName/WsNotifyServiceArea by
+// value -- redefined locally, same pattern base/l8inventory already use, so
+// this package gains no new dependency). See
+// l8utils/plans/generic-websocket-change-notifications.md.
+const (
+	wsServiceName = "websock"
+	wsServiceArea = byte(0)
+)
+
 // cacheGet retrieves an element from the cache by its primary key.
 // Returns the cached element and true on hit, or nil and false on miss.
 // If cache is nil, always returns miss.
@@ -35,35 +45,47 @@ func (this *OrmService) cacheGet(element interface{}) (interface{}, bool) {
 	return item, true
 }
 
-// cachePost adds or replaces an element in the cache.
-// Notifications are disabled since the ORM service layer handles its own callbacks.
-// No-op if cache is nil.
-func (this *OrmService) cachePost(element interface{}) {
+// cachePost adds or replaces an element in the cache. notify must be true only
+// for a genuine write (POST/PUT) -- never for cache population from a read
+// (cacheElements), which is not a state change and must never broadcast. When
+// notify is true, sends the resulting client (websocket) notification via
+// vnic, mirroring base.BaseService.do()'s already-existing pattern
+// (l8utils/plans/generic-websocket-change-notifications.md Phase 1). No-op if
+// cache is nil.
+func (this *OrmService) cachePost(element interface{}, notify bool, vnic ifs.IVNic) {
 	if this.cache == nil {
 		return
 	}
-	this.cache.Post(element, false)
+	_, cn, _ := this.cache.Post(element, notify)
+	if notify && cn != nil && vnic != nil {
+		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
+	}
 }
 
-// cachePatch applies a partial update to an element in the cache.
-// Notifications are disabled since the ORM service layer handles its own callbacks.
-// No-op if cache is nil.
-func (this *OrmService) cachePatch(element interface{}) {
+// cachePatch applies a partial update to an element in the cache. See
+// cachePost for the notify/vnic contract.
+func (this *OrmService) cachePatch(element interface{}, notify bool, vnic ifs.IVNic) {
 	if this.cache == nil {
 		return
 	}
-	this.cache.Patch(element, false)
+	_, cn, _ := this.cache.Patch(element, notify)
+	if notify && cn != nil && vnic != nil {
+		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
+	}
 }
 
-// cacheDelete removes an element from the cache.
-// Notifications are disabled since the ORM service layer handles its own callbacks.
-// No-op if cache is nil. Returns any error from the underlying cache so the caller
-// can log it with service/type context instead of silently swallowing failures.
-func (this *OrmService) cacheDelete(element interface{}) error {
+// cacheDelete removes an element from the cache. See cachePost for the
+// notify/vnic contract. Returns any error from the underlying cache so the
+// caller can log it with service/type context instead of silently swallowing
+// failures.
+func (this *OrmService) cacheDelete(element interface{}, notify bool, vnic ifs.IVNic) error {
 	if this.cache == nil {
 		return nil
 	}
-	_, _, err := this.cache.Delete(element, false)
+	_, cn, err := this.cache.Delete(element, notify)
+	if notify && cn != nil && vnic != nil {
+		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
+	}
 	return err
 }
 
@@ -97,7 +119,9 @@ func (this *OrmService) cacheElements(elements ifs.IElements) {
 	}
 	for _, elem := range elements.Elements() {
 		if elem != nil {
-			this.cachePost(elem)
+			// notify=false: this populates the cache from a read (DB fetch),
+			// never a real state change -- must not broadcast.
+			this.cachePost(elem, false, nil)
 		}
 	}
 }

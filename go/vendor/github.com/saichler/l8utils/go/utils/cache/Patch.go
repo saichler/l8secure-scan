@@ -69,7 +69,7 @@ func (this *Cache) Patch(v interface{}, createNotification bool) (*l8notify.L8No
 		//Clone the value for the notification
 		//itemClone := cloner.Clone(v)
 		n, e = this.createAddNotification(vClone, pk)
-		return n, this.createClientNotification(n), e
+		return n, this.createClientNotification(n, vClone), e
 	}
 
 	//Create a new updater

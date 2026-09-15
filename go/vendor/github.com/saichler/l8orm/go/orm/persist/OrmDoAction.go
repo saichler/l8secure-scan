@@ -68,7 +68,7 @@ func (this *OrmService) cacheAction(action ifs.Action, pb ifs.IElements, vnic if
 		}
 		switch action {
 		case ifs.POST, ifs.PUT:
-			this.cachePost(elem)
+			this.cachePost(elem, true, vnic)
 		case ifs.PATCH:
 			// For patch, ensure the element exists in cache first
 			if _, ok := this.cacheGet(elem); !ok {
@@ -79,7 +79,7 @@ func (this *OrmService) cacheAction(action ifs.Action, pb ifs.IElements, vnic if
 					this.cacheElements(result)
 				}
 			}
-			this.cachePatch(elem)
+			this.cachePatch(elem, true, vnic)
 		}
 	}
 }

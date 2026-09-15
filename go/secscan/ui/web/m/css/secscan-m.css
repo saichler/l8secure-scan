@@ -212,6 +212,9 @@ html, body {
 .secscan-m-trend-empty { font-size: 12px; color: var(--layer8d-text-light, #a0aec0); }
 
 .secscan-m-group-toolbar { margin-bottom: 8px; }
+/* Bar/fill/label styling lives in the generic
+   l8ui/shared/layer8d-progress-bar.css -- this is just the outer spacing. */
+.secscan-m-scan-progress { margin-bottom: 12px; }
 .secscan-m-ref-select-label { display: flex; align-items: center; gap: 6px; }
 
 /* Project-specific: Image Groups list (customInit view) */

@@ -68,7 +68,7 @@ func (this *Cache) Post(v interface{}, createNotification bool) (*l8notify.L8Not
 		//Create the notification using the clone outside the current go routine
 		if createNotification {
 			n, e = this.createAddNotification(itemClone, pk)
-			return n, this.createClientNotification(n), e
+			return n, this.createClientNotification(n, itemClone), e
 		}
 		return n, nil, e
 	}
@@ -112,5 +112,5 @@ func (this *Cache) Post(v interface{}, createNotification bool) (*l8notify.L8Not
 	}
 
 	n, e = this.createReplaceNotification(item, v, pk)
-	return n, this.createClientNotification(n), e
+	return n, this.createClientNotification(n, v), e
 }

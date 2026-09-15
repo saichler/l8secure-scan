@@ -14,6 +14,7 @@
 package dcache
 
 import (
+	"github.com/saichler/l8types/go/ifs"
 	"github.com/saichler/l8types/go/types/l8notify"
 )
 
@@ -22,9 +23,14 @@ import (
 // parameter, when true, suppresses notification generation (used during replication).
 func (this *DCache) Patch(v interface{}, sourceNotification ...bool) (*l8notify.L8NotificationSet, error) {
 	createNotification := !(sourceNotification != nil && len(sourceNotification) > 0 && sourceNotification[0])
-	n, _, e := this.cache.Patch(v, createNotification)
+	n, cn, e := this.cache.Patch(v, createNotification)
 	if this.listener != nil && createNotification && e == nil && n != nil {
 		this.nQueue.Add(n)
+	}
+	// See DCachePost.go's Post for why this is a no-op when listener is nil
+	// (l8utils/plans/generic-websocket-change-notifications.md Phase 1b).
+	if vnic, ok := this.listener.(ifs.IVNic); ok && cn != nil {
+		vnic.Multicast(wsServiceName, wsServiceArea, ifs.Action(cn.Type), cn)
 	}
 	return n, e
 }

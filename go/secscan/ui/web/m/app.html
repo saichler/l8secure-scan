@@ -31,6 +31,7 @@ limitations under the License.
     <!-- App Shell CSS -->
     <link rel="stylesheet" href="css/secscan-m.css">
     <!-- Mobile Component CSS -->
+    <link rel="stylesheet" href="../l8ui/shared/layer8d-progress-bar.css">
     <link rel="stylesheet" href="../l8ui/m/css/layer8m-popup.css">
     <link rel="stylesheet" href="../l8ui/m/css/layer8m-confirm.css">
     <link rel="stylesheet" href="../l8ui/m/css/layer8m-table.css">
@@ -141,6 +142,15 @@ limitations under the License.
     <!-- Shared Desktop Utilities (needed to reuse desktop secscan enum/column/form files verbatim, PRD §11.7) -->
     <script src="../l8ui/shared/layer8d-utils.js"></script>
     <script src="../l8ui/shared/layer8d-renderers.js"></script>
+    <!-- Layer8DWebSocket/Layer8DProgressBar are already platform-agnostic
+         (no desktop-specific dependency) -- reused directly rather than
+         building a separate mobile component
+         (plans/scanjob-live-progress.md Phase 5-m). Was not loaded on
+         mobile at all before this -- layer8m-data-source.js/layer8m-table.js
+         already call Layer8DWebSocket.subscribe() but it was always
+         undefined here. -->
+    <script src="../l8ui/shared/layer8d-websocket.js"></script>
+    <script src="../l8ui/shared/layer8d-progress-bar.js"></script>
     <!-- Factory Components (load before module scripts) -->
     <script src="../l8ui/shared/layer8-enum-factory.js"></script>
     <script src="../l8ui/shared/layer8-ref-factory.js"></script>

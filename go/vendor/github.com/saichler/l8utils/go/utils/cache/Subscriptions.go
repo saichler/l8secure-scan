@@ -16,17 +16,22 @@ package cache
 import (
 	"sync"
 	"time"
+
+	"github.com/saichler/l8types/go/ifs"
 )
 
 const DefaultSubscriptionTTL = 300 // 5 minutes
 
 // Subscription represents a user's interest in change notifications
 // for a specific model type. Keyed by AAAId (authenticated user identity).
+// Query is the live, already-parsed query object -- stored directly (not
+// re-derived from text) so a write can call Query.Match() against the
+// changed record without re-parsing
+// (l8utils/plans/generic-websocket-change-notifications.md Phase 2).
 type Subscription struct {
-	AAAId     string
-	QueryHash int32
-	QueryText string
-	lastSeen  int64
+	AAAId    string
+	Query    ifs.IQuery
+	lastSeen int64
 }
 
 // subscriptions tracks which browser tabs are subscribed to change notifications

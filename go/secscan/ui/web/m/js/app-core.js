@@ -38,6 +38,14 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 
             await Layer8MConfig.load();
 
+            // Connect real-time WebSocket for live data updates -- reuses
+            // the same desktop Layer8DWebSocket already loaded here, never
+            // previously initialized on mobile
+            // (plans/scanjob-live-progress.md Phase 5-m).
+            if (typeof Layer8DWebSocket !== 'undefined') {
+                Layer8DWebSocket.init();
+            }
+
             this.updateUserInfo();
 
             // No server-side ModConfig service in this project

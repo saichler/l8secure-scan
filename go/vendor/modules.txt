@@ -92,7 +92,7 @@ github.com/saichler/l8logfusion/go/agent/common
 github.com/saichler/l8logfusion/go/agent/logs
 github.com/saichler/l8logfusion/go/agent/logserver
 github.com/saichler/l8logfusion/go/types/l8logf
-# github.com/saichler/l8orm v0.0.0-20260613145442-8ef992eb7bcb
+# github.com/saichler/l8orm v0.0.0-20260915143432-47cf740f2038
 ## explicit
 github.com/saichler/l8orm/go/orm/common
 github.com/saichler/l8orm/go/orm/convert
@@ -116,7 +116,7 @@ github.com/saichler/l8reflect/go/reflect/helping
 github.com/saichler/l8reflect/go/reflect/introspecting
 github.com/saichler/l8reflect/go/reflect/properties
 github.com/saichler/l8reflect/go/reflect/updating
-# github.com/saichler/l8services v0.0.0-20260730135741-1fa4b3846015
+# github.com/saichler/l8services v0.0.0-20260915143516-f45bed6c6bc7
 ## explicit
 github.com/saichler/l8services/go/services/base
 github.com/saichler/l8services/go/services/csvexport
@@ -136,7 +136,7 @@ github.com/saichler/l8srlz/go/serialize/object
 github.com/saichler/l8test/go/infra/t_resources
 github.com/saichler/l8test/go/infra/t_service
 github.com/saichler/l8test/go/infra/t_topology
-# github.com/saichler/l8types v0.0.0-20260809125345-ae67316219ee
+# github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc
 ## explicit
 github.com/saichler/l8types/go/aes
 github.com/saichler/l8types/go/ifs
@@ -152,7 +152,7 @@ github.com/saichler/l8types/go/types/l8services
 github.com/saichler/l8types/go/types/l8sysconfig
 github.com/saichler/l8types/go/types/l8system
 github.com/saichler/l8types/go/types/l8web
-# github.com/saichler/l8utils v0.0.0-20260907163422-1397ebb1eafe
+# github.com/saichler/l8utils v0.0.0-20260915142741-4a2cbee004d1
 ## explicit
 github.com/saichler/l8utils/go/utils/cache
 github.com/saichler/l8utils/go/utils/events
@@ -169,7 +169,7 @@ github.com/saichler/l8utils/go/utils/shared
 github.com/saichler/l8utils/go/utils/strings
 github.com/saichler/l8utils/go/utils/web
 github.com/saichler/l8utils/go/utils/workers
-# github.com/saichler/l8web v0.0.0-20260726182518-5097b8cf253e
+# github.com/saichler/l8web v0.0.0-20260915143157-60e7e88ca26b
 ## explicit
 github.com/saichler/l8web/go/web/server
 # github.com/saichler/probler v0.0.0-20260523194022-a99896a9e09c
@@ -181,8 +181,8 @@ github.com/sirupsen/logrus
 # golang.org/x/sync v0.22.0
 ## explicit; go 1.25.0
 golang.org/x/sync/errgroup
-# golang.org/x/sys v0.48.0
-## explicit; go 1.26.0
+# golang.org/x/sys v0.47.0
+## explicit; go 1.25.0
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # google.golang.org/protobuf v1.36.12

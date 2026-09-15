@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	evtservices "github.com/saichler/l8events/go/services"
 	scommon "github.com/saichler/l8secure-scan/go/secscan/common"
+	"github.com/saichler/l8secure-scan/go/secscan/scanjob"
 	"github.com/saichler/l8secure-scan/go/secscan/services"
 	"github.com/saichler/l8secure-scan/go/tests/mocks"
 	"github.com/saichler/l8types/go/ifs"
@@ -74,8 +75,13 @@ func TestAllServices(t *testing.T) {
 	// StartWebserver.go's doc comment for why order/vnic matter here).
 	scommon.RegisterSecscanTypes(servicesVnic.Resources())
 
-	// 2. Activate all secscan services + l8events (EventsServiceRequired)
+	// 2. Activate all secscan services + l8events (EventsServiceRequired).
+	// The stateless ScanJob action service is scanner-hosted in production
+	// (plans/scanjob-live-progress.md) but this in-process topology has no
+	// separate scanner vnic, so it's activated here alongside everything
+	// else, same as imgrefadd/vulnrep already are.
 	services.ActivateSecscanServices(scommon.DB_CREDS, scommon.DB_NAME, servicesVnic)
+	scanjob.Activate(servicesVnic)
 	evtservices.ActivateEvents(scommon.DB_CREDS, scommon.DB_NAME, servicesVnic)
 
 	// 3. Start the web server on a separate vnic (non-blocking)

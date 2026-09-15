@@ -80,43 +80,34 @@ window.SecScanDashboardKpis = (function() {
         }
     }
 
-    // --- Scan progress polling -------------------------------------------
-    // Runs independently of which section is currently visible (module-
-    // level state, not DOM-scoped) -- a scan started from the Dashboard
-    // must still finish and clear the selection even if the user
-    // navigates to Images while it's running. Rendering itself is a
-    // no-op when the Dashboard's progress element isn't in the DOM.
+    // --- Scan progress (live, via Layer8DProgressBar) ---------------------
+    // activeJobId is module-level state, not DOM-scoped -- a scan started
+    // from the Dashboard must still finish and clear the selection even if
+    // the user navigates to Images while it's running; re-entering the
+    // Dashboard re-attaches the progress bar for whatever job is still
+    // active (see initializeSecScanDashboard below).
 
     let activeJobId = null;
-    let pollTimer = null;
-    const POLL_MS = 1500;
+    let progressBarHandle = null;
 
+    // ScanJobs is the renamed, ORM-backed persistence service
+    // (plans/scanjob-live-progress.md Phase 2) -- the stateless ScanJob
+    // action service's own Get() is stubbed "not supported", so fetching a
+    // job's current status must target /60/ScanJobs, not /60/ScanJob (the
+    // POST-only endpoint scanSelected() below still uses). "register" in
+    // the query text is what registers this session's live subscription
+    // server-side (l8utils/plans/generic-websocket-change-notifications.md);
+    // the protobuf type name in the query itself stays "ScanJob" either way.
     function fetchScanJob(scanJobId) {
-        const q = encodeURIComponent(JSON.stringify({ text: "select * from ScanJob where scanJobId='" + scanJobId + "'" }));
-        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ScanJob?body=' + q))
+        const q = encodeURIComponent(JSON.stringify({ text: "select * from ScanJob where scanJobId='" + scanJobId + "' register" }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ScanJobs?body=' + q))
             .then(function(r) { return r ? r.json() : null; })
             .then(function(data) { return (data && data.list && data.list[0]) || null; });
     }
 
-    // JobStatus enum (proto/secscan.proto): 1=QUEUED 2=RUNNING 3=COMPLETED
+    // JobStatus enum (proto/secscan.proto): 1=QUEUED (never set anymore --
+    // no poll/claim step left to queue behind) 2=RUNNING 3=COMPLETED
     // 4=FAILED 5=PARTIAL.
-    function isTerminal(status) {
-        return status === 3 || status === 4 || status === 5;
-    }
-
-    function renderProgress(job) {
-        const wrap = document.getElementById('secscan-scan-progress');
-        if (!wrap) return; // Dashboard not currently rendered -- fine, polling continues regardless.
-        const total = job.totalImages || 1;
-        const done = (job.completedImages || 0) + (job.failedImages || 0);
-        const pct = Math.min(100, Math.round((done / total) * 100));
-        wrap.hidden = false;
-        wrap.querySelector('.secscan-scan-progress-bar-fill').style.width = pct + '%';
-        wrap.querySelector('.secscan-scan-progress-label').textContent =
-            statusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
-            (job.failedImages ? ' (' + job.failedImages + ' failed)' : '');
-    }
-
     function statusLabel(status) {
         switch (status) {
             case 1: return 'Queued';
@@ -128,37 +119,37 @@ window.SecScanDashboardKpis = (function() {
         }
     }
 
-    function stopPolling() {
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-        }
+    function scanJobProgress(job) {
+        const total = job.totalImages || 1;
+        const done = (job.completedImages || 0) + (job.failedImages || 0);
+        const pct = Math.min(100, Math.round((done / total) * 100));
+        return {
+            percent: pct,
+            label: statusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
+                (job.failedImages ? ' (' + job.failedImages + ' failed)' : ''),
+            done: job.status === 3 || job.status === 4 || job.status === 5
+        };
     }
 
-    function startPolling(scanJobId) {
+    function attachProgressBar(scanJobId) {
         activeJobId = scanJobId;
-        stopPolling();
-        const tick = function() {
-            fetchScanJob(scanJobId).then(function(job) {
-                if (!job) return;
-                renderProgress(job);
-                if (isTerminal(job.status)) {
-                    stopPolling();
-                    activeJobId = null;
-                    SecScanImageSelection.clear();
-                    updateScanButton(SecScanImageSelection.count());
-                    loadStrip();
-                    const wrap = document.getElementById('secscan-scan-progress');
-                    if (wrap) {
-                        setTimeout(function() { wrap.hidden = true; }, 3000);
-                    }
-                }
-            }).catch(function(err) {
-                console.error('Scan progress poll failed:', err);
-            });
-        };
-        tick();
-        pollTimer = setInterval(tick, POLL_MS);
+        const wrap = document.getElementById('secscan-scan-progress');
+        if (!wrap || typeof Layer8DProgressBar === 'undefined') return;
+        if (progressBarHandle) progressBarHandle.detach();
+        progressBarHandle = Layer8DProgressBar.attach(wrap, {
+            modelType: 'ScanJob', // protobuf type name, not ServiceName (Decision 1)
+            primaryKey: scanJobId,
+            fetchCurrent: function() { return fetchScanJob(scanJobId); },
+            getProgress: scanJobProgress,
+            onDone: function() {
+                activeJobId = null;
+                progressBarHandle = null;
+                SecScanImageSelection.clear();
+                updateScanButton(SecScanImageSelection.count());
+                loadStrip();
+                setTimeout(function() { wrap.hidden = true; }, 3000);
+            }
+        });
     }
 
     function scanSelected() {
@@ -185,7 +176,7 @@ window.SecScanDashboardKpis = (function() {
             }
             Layer8DNotification.success('Scanning ' + ids.length + ' image(s)');
             updateScanButton(SecScanImageSelection.count());
-            startPolling(job.scanJobId);
+            attachProgressBar(job.scanJobId);
         }).catch(function(err) {
             console.error('Scan Images error:', err);
             Layer8DNotification.error('Failed to start scan: ' + err.message);
@@ -203,10 +194,9 @@ window.SecScanDashboardKpis = (function() {
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
             '</div>' +
-            '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden>' +
-            '<div class="secscan-scan-progress-bar"><div class="secscan-scan-progress-bar-fill"></div></div>' +
-            '<div class="secscan-scan-progress-label"></div>' +
-            '</div>'
+            // Empty on purpose -- Layer8DProgressBar.attach() populates this
+            // container with its own generic markup.
+            '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden></div>'
     });
 
     let attached = false;
@@ -229,11 +219,10 @@ window.SecScanDashboardKpis = (function() {
             SecScanImageSelection.onChange(updateScanButton);
         }
         updateScanButton(SecScanImageSelection.count());
-        // Re-entering the Dashboard mid-scan (navigated away and back)
-        // should show the in-progress bar immediately, not wait for the
-        // next tick.
+        // Re-entering the Dashboard mid-scan (navigated away and back) --
+        // the progress container was just recreated, so re-attach.
         if (activeJobId) {
-            fetchScanJob(activeJobId).then(function(job) { if (job) renderProgress(job); });
+            attachProgressBar(activeJobId);
         }
         loadStrip();
     };

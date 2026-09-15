@@ -15,9 +15,16 @@ const (
 	ImageRefServiceName      = "ImageRef"
 	CveServiceName           = "Cve"
 	ImageRefCveServiceName   = "ImgRefCve"
-	ScanJobServiceName       = "ScanJob"
-	ImgRefAddServiceName     = "ImgRefAdd"
-	VulnRepServiceName       = "VulnRep"
+	// ScanJobsServiceName is the ORM/Postgres-backed persistence service --
+	// pure CRUD, no ServiceCallback, nothing polls it (plans/scanjob-live-progress.md).
+	ScanJobsServiceName = "ScanJobs"
+	// ScanJobServiceName is the stateless action service hosted inside
+	// secscan-scanner: the Dashboard/mobile "Scan Selected" POST target.
+	// It writes to ScanJobsServiceName as scanning progresses
+	// (plans/scanjob-live-progress.md).
+	ScanJobServiceName   = "ScanJob"
+	ImgRefAddServiceName = "ImgRefAdd"
+	VulnRepServiceName   = "VulnRep"
 )
 
 // PREFIX is the project's REST API prefix (LoginJsonAdaptation).

@@ -200,14 +200,16 @@ func (this *Cache) ModelType() string {
 	return this.modelType
 }
 
-// RegisterSubscription registers a user (identified by AAAId) for real-time
-// change notifications on this cache's model type. Called by the service
-// handler after Fetch when the query has Register=true.
-func (this *Cache) RegisterSubscription(aaaId string, queryHash int32, queryText string) {
+// registerSubscription registers a user (identified by AAAId) for real-time
+// change notifications on this cache's model type, keyed on q (used directly
+// for Match()-based filtering on write, see notifications.go). Called by
+// Fetch() itself whenever the query has Register=true -- private, since
+// there is no other legitimate entry point
+// (l8utils/plans/generic-websocket-change-notifications.md Phase 3).
+func (this *Cache) registerSubscription(aaaId string, q ifs.IQuery) {
 	this.subs.register(&Subscription{
-		AAAId:     aaaId,
-		QueryHash: queryHash,
-		QueryText: queryText,
+		AAAId: aaaId,
+		Query: q,
 	})
 }
 

@@ -24,8 +24,20 @@ func (this *Cache) createNotificationSet(t l8notify.L8NotificationType, key stri
 	return notify.CreateNotificationSet(t, this.serviceName, key, this.serviceArea, this.modelType, this.Source(), changeCount, this.notifySequence)
 }
 
-func (this *Cache) createClientNotification(delta *l8notify.L8NotificationSet) *l8notify.L8NotificationSet {
+// createClientNotification builds the browser-facing notification, targeted
+// only at subscribers whose registered query actually matches value (the
+// new/changed record for Post/Put, or the removed record for Delete) --
+// never a blind broadcast to every subscriber
+// (l8utils/plans/generic-websocket-change-notifications.md Phase 2). Returns
+// nil (not a cn with an empty/nil AaaIds) when nobody matches: an empty
+// AaaIds map is what tells WebSocketManager.OnNotification to broadcast to
+// every connected client, which would be wrong here.
+func (this *Cache) createClientNotification(delta *l8notify.L8NotificationSet, value interface{}) *l8notify.L8NotificationSet {
 	if delta == nil || !this.HasSubscribers() {
+		return nil
+	}
+	aaaIds := this.matchingSubscriberAaaIds(value)
+	if len(aaaIds) == 0 {
 		return nil
 	}
 	cn := &l8notify.L8NotificationSet{}
@@ -36,7 +48,7 @@ func (this *Cache) createClientNotification(delta *l8notify.L8NotificationSet) *
 	cn.Type = delta.Type
 	cn.Source = delta.Source
 	cn.NotificationList = delta.NotificationList
-	cn.AaaIds = this.subscriberAaaIds()
+	cn.AaaIds = aaaIds
 	return cn
 }
 
@@ -44,22 +56,34 @@ func (this *Cache) createClientNotificationForPatch(item interface{}, key string
 	if !this.HasSubscribers() {
 		return nil
 	}
+	aaaIds := this.matchingSubscriberAaaIds(item)
+	if len(aaaIds) == 0 {
+		return nil
+	}
 	n, e := this.createAddNotification(item, key)
 	if e != nil {
 		return nil
 	}
 	n.Type = l8notify.L8NotificationType_Patch
-	n.AaaIds = this.subscriberAaaIds()
+	n.AaaIds = aaaIds
 	return n
 }
 
-func (this *Cache) subscriberAaaIds() map[string]bool {
+// matchingSubscriberAaaIds returns the AAAId of every registered subscriber
+// whose query matches value, or nil if none do.
+func (this *Cache) matchingSubscriberAaaIds(value interface{}) map[string]bool {
 	subs := this.Subscribers()
 	if len(subs) == 0 {
 		return nil
 	}
-	ids := make(map[string]bool, len(subs))
+	var ids map[string]bool
 	for _, s := range subs {
+		if s.Query == nil || !s.Query.Match(value) {
+			continue
+		}
+		if ids == nil {
+			ids = make(map[string]bool, len(subs))
+		}
 		ids[s.AAAId] = true
 	}
 	return ids

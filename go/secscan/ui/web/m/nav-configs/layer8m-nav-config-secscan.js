@@ -48,11 +48,16 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
                     }
                 },
                 {
+                    // Endpoint is /60/ScanJobs (the renamed, ORM-backed
+                    // persistence service) -- the new stateless /60/ScanJob
+                    // action service's own Get() is stubbed "not supported"
+                    // (plans/scanjob-live-progress.md Phase 2). model stays
+                    // 'ScanJob', the protobuf type name, unchanged either way.
                     key: 'scanjobs', label: 'Scan History', icon: 'default',
-                    endpoint: '/60/ScanJob', model: 'ScanJob', idField: 'scanJobId', readOnly: true,
+                    endpoint: '/60/ScanJobs', model: 'ScanJob', idField: 'scanJobId', readOnly: true,
                     onRowClick: function(item) {
                         Layer8MNavCrud.showRecordDetails(
-                            { label: 'Scan Job', model: 'ScanJob', endpoint: '/60/ScanJob', idField: 'scanJobId' },
+                            { label: 'Scan Job', model: 'ScanJob', endpoint: '/60/ScanJobs', idField: 'scanJobId' },
                             MobileSecScanVuln.forms.ScanJob,
                             item
                         );
