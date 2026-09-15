@@ -1,6 +1,7 @@
 package scanloop
 
 import (
+	"fmt"
 	"time"
 
 	l8common "github.com/saichler/l8common/go/common"
@@ -46,10 +47,13 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 	ref.DistinctCounts = distinct
 	ref.LastScannedAt = time.Now().Unix()
 	ref.ScanError = ""
+	vnic.Resources().Logger().Info("DEBUG scanOneImage before final PUT ref=", fmt.Sprintf("%#v", ref))
 	if err := l8common.PutEntity(scommon.ImageRefServiceName, scommon.ServiceArea, ref, vnic); err != nil {
 		vnic.Resources().Logger().Error("scanloop: failed to complete ImageRef ", refId, ": ", err.Error())
 		return false
 	}
+	verify, verr := l8common.GetEntity(scommon.ImageRefServiceName, scommon.ServiceArea, &secscan.ImageRef{ImageRefId: refId}, vnic)
+	vnic.Resources().Logger().Info("DEBUG scanOneImage after final PUT, re-fetched=", fmt.Sprintf("%#v", verify), " err=", verr)
 	return true
 }
 

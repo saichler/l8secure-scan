@@ -3,6 +3,7 @@
 package scanloop
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -101,6 +102,7 @@ func work(item interface{}, vnic ifs.IVNic) {
 	}
 	job.CompletedAt = time.Now().Unix()
 
+	vnic.Resources().Logger().Info("DEBUG scanloop.work before finalize PUT job=", fmt.Sprintf("%#v", job))
 	if err := l8common.PutEntity(scommon.ScanJobServiceName, scommon.ServiceArea, job, vnic); err != nil {
 		vnic.Resources().Logger().Error("scanloop: failed to finalize ScanJob ", job.ScanJobId, ": ", err.Error())
 	}
