@@ -1,0 +1,14 @@
+{
+  "name": "secscan-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:desktop": "playwright test --project=chromium-desktop",
+    "test:mobile": "playwright test --project=chromium-mobile",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}
