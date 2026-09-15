@@ -22,12 +22,12 @@ SecScan.countOf = function(endpoint, query) {
 
 SecScan.loadKpis = function(customerId) {
     return Promise.all([
-        SecScan.countOf('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' limit 1 page 1"),
+        SecScan.countOf('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' limit 1 page 0"),
         // ScanStatus_PENDING = 1 (bare integer, never a quoted name)
-        SecScan.countOf('/60/ImageRef', "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 1 page 1"),
+        SecScan.countOf('/60/ImageRef', "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 1 page 0"),
         // Severity_CRITICAL = 4
-        SecScan.countOf('/60/ImgRefCve', "select * from ImageRefCve where customerId='" + customerId + "' and severity=4 limit 1 page 1"),
-        SecScan.countOf('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' and scannedRefCount=0 limit 1 page 1")
+        SecScan.countOf('/60/ImgRefCve', "select * from ImageRefCve where customerId='" + customerId + "' and severity=4 limit 1 page 0"),
+        SecScan.countOf('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' and scannedRefCount=0 limit 1 page 0")
     ]).then(function(r) {
         return { totalGroups: r[0], pendingScans: r[1], criticalCves: r[2], unscannedGroups: r[3] };
     });

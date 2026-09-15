@@ -19,6 +19,10 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     padding: 12px 0;
 }
 
+.secscan-top-vuln-chart {
+    margin-bottom: 12px;
+}
+
 .secscan-dashboard-toolbar {
     display: flex;
     gap: 8px;

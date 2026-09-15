@@ -1,5 +1,5 @@
 {
-    "name": "Layer 8 Secure Scan",
+    "name": "Vulnerabilities Doctor",
     "short_name": "SecScan",
     "description": "Container Image Vulnerability Management",
     "start_url": "./",

@@ -148,7 +148,6 @@ window.SecScanGroupDetail = (function() {
                 return '<input type="checkbox" class="secscan-ref-select" data-id="' + item.imageRefId +
                     '" data-label="' + Layer8DUtils.escapeHtml(label) + '"' + checked + '>';
             }, { sortKey: false }),
-            ...Layer8ColumnFactory.id('imageRefId'),
             ...Layer8ColumnFactory.col('repoName', 'Repo'),
             ...Layer8ColumnFactory.col('tag', 'Tag'),
             ...Layer8ColumnFactory.custom('buildDate', 'Build Date', function(item) {

@@ -13,7 +13,6 @@ window.SecScanVuln = window.SecScanVuln || {};
 
     SecScanVuln.columns = SecScanVuln.columns || {};
     SecScanVuln.columns.ScanJob = [
-        ...col.id('scanJobId'),
         ...col.status('status', 'Status', SecScanVuln.enums.JOB_STATUS_VALUES, render.jobStatus),
         ...col.number('totalImages', 'Total'),
         ...col.number('completedImages', 'Completed'),

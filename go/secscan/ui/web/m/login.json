@@ -1,6 +1,6 @@
 {
     "login": {
-        "appTitle": "Layer 8 Secure Scan",
+        "appTitle": "Vulnerabilities Doctor",
         "appDescription": "Container Image Vulnerability Management",
         "authEndpoint": "/auth",
         "redirectUrl": "/m/app.html",

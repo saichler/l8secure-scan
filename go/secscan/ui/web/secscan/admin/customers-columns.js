@@ -12,7 +12,6 @@ window.SecScanAdmin = window.SecScanAdmin || {};
 
     SecScanAdmin.columns = SecScanAdmin.columns || {};
     SecScanAdmin.columns.Customer = [
-        ...col.id('customerId'),
         ...col.col('name', 'Name'),
         ...col.boolean('isActive', 'Active')
     ];

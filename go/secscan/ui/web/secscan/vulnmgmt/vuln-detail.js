@@ -52,7 +52,6 @@ window.SecScanVulnDetail = (function() {
 
     function renderFindingsTable(imageRefId) {
         const columns = [
-            ...Layer8ColumnFactory.id('imageRefCveId'),
             ...Layer8ColumnFactory.col('cveId', 'CVE ID'),
             ...Layer8ColumnFactory.col('packageName', 'Package'),
             ...Layer8ColumnFactory.col('installedVersion', 'Installed Version'),

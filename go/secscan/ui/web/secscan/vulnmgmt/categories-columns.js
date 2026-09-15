@@ -12,7 +12,6 @@ window.SecScanVuln = window.SecScanVuln || {};
 
     SecScanVuln.columns = SecScanVuln.columns || {};
     SecScanVuln.columns.ImageCategory = [
-        ...col.id('categoryId'),
         ...col.col('name', 'Name'),
         ...col.custom('colorCode', 'Color', function(item) {
             var color = item.colorCode || '#cccccc';

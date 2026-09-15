@@ -18,7 +18,6 @@ window.SecScanVuln = window.SecScanVuln || {};
 
     SecScanVuln.columns = SecScanVuln.columns || {};
     SecScanVuln.columns.ImageGroup = [
-        ...col.id('imageGroupId'),
         ...col.col('imageName', 'Name'),
         ...col.custom('categoryId', 'Category', function(item) {
             var cat = SecScanVuln.getCategory(item.categoryId);

@@ -26,12 +26,12 @@ window.SecScanDashboardKpis = (function() {
 
     function loadKpis(customerId) {
         return Promise.all([
-            countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' limit 1 page 1"),
+            countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' limit 1 page 0"),
             // ScanStatus_PENDING = 1 (bare integer, never a quoted name -- verified L8Query rule)
-            countOfEndpoint('/60/ImageRef', "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 1 page 1"),
+            countOfEndpoint('/60/ImageRef', "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 1 page 0"),
             // Severity_CRITICAL = 4
-            countOfEndpoint('/60/ImgRefCve', "select * from ImageRefCve where customerId='" + customerId + "' and severity=4 limit 1 page 1"),
-            countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' and scannedRefCount=0 limit 1 page 1")
+            countOfEndpoint('/60/ImgRefCve', "select * from ImageRefCve where customerId='" + customerId + "' and severity=4 limit 1 page 0"),
+            countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' and scannedRefCount=0 limit 1 page 0")
         ]).then(function(results) {
             return {
                 totalGroups: results[0],
@@ -66,6 +66,54 @@ window.SecScanDashboardKpis = (function() {
         }).catch(function(err) {
             console.error('Dashboard KPIs: failed to load', err);
         });
+        loadTopVulnChart(customerId);
+    }
+
+    // --- Top Images with Vulnerabilities chart -----------------------------
+    // Not the same chart as Images' own table/chart view-switcher
+    // (secscan-config.js, categoryField:'imageName' valueField:'newestCounts.
+    // critical') -- that one only ever plots critical counts. This one ranks
+    // by TOTAL vulnerability count across all four severities, a derived
+    // field Layer8DChart has no direct field path for, so it's computed
+    // client-side per group before handing static data to setData()
+    // (bypassing the dataSource/pagination machinery entirely, same as the
+    // KPI cards above do for their own counts).
+    let topVulnChart = null;
+
+    function loadTopVulnChart(customerId) {
+        const chartEl = document.getElementById('secscan-top-vuln-chart');
+        if (!chartEl) return;
+        const q = encodeURIComponent(JSON.stringify({ text: "select * from ImageGroup where customerId='" + customerId + "' limit 100 page 0" }));
+        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgGroup?body=' + q))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) {
+                const list = (data && data.list) || [];
+                const withTotals = list.map(function(g) {
+                    const c = g.newestCounts || {};
+                    return Object.assign({}, g, {
+                        totalVulnCount: (c.critical || 0) + (c.high || 0) + (c.medium || 0) + (c.low || 0)
+                    });
+                });
+                withTotals.sort(function(a, b) { return b.totalVulnCount - a.totalVulnCount; });
+                const top = withTotals.slice(0, 10);
+
+                if (!topVulnChart) {
+                    topVulnChart = new Layer8DChart({
+                        containerId: 'secscan-top-vuln-chart',
+                        viewConfig: {
+                            chartType: 'bar',
+                            categoryField: 'imageName',
+                            valueField: 'totalVulnCount',
+                            aggregation: 'sum',
+                            title: 'Top Images with Vulnerabilities'
+                        }
+                    });
+                    topVulnChart.init();
+                }
+                topVulnChart.setData(top);
+            }).catch(function(err) {
+                console.error('Top vulnerabilities chart: failed to load', err);
+            });
     }
 
     function updateScanButton(count) {
@@ -194,6 +242,7 @@ window.SecScanDashboardKpis = (function() {
         modules: [],
         customContent:
             '<div id="secscan-dashboard-kpi-strip" class="secscan-kpi-strip secscan-kpi-loading">Loading…</div>' +
+            '<div id="secscan-top-vuln-chart" class="secscan-top-vuln-chart"></div>' +
             '<div class="secscan-dashboard-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
