@@ -134,8 +134,11 @@ func (this *ServiceHandler) serveHttp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	action = methodToAction(r.Method, body)
-	if q, ok := body.(*l8api.L8Query); ok && aaaid != "" {
+	q, isQuery := body.(*l8api.L8Query)
+	fmt.Println("DEBUG serveHttp aaaid=", aaaid, " isQuery=", isQuery, " bodyType=", fmt.Sprintf("%T", body))
+	if isQuery && aaaid != "" {
 		q.AaaId = aaaid
+		fmt.Println("DEBUG serveHttp stamped q.AaaId=", q.AaaId, " text=", q.Text)
 	}
 	var elems ifs.IElements
 

@@ -71,7 +71,7 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/saichler/l8bus v0.0.0-20260524152159-cc0b5c210821
+# github.com/saichler/l8bus v0.0.0-20260915180446-6d4ffd75cfeb
 ## explicit
 github.com/saichler/l8bus/go/overlay/health
 github.com/saichler/l8bus/go/overlay/metrics
@@ -128,7 +128,7 @@ github.com/saichler/l8services/go/services/recovery
 github.com/saichler/l8services/go/services/replication
 github.com/saichler/l8services/go/services/transaction/requests
 github.com/saichler/l8services/go/services/transaction/states
-# github.com/saichler/l8srlz v0.0.0-20260322124809-505a0d08f95d
+# github.com/saichler/l8srlz v0.0.0-20260915180333-9314d9c21cc8
 ## explicit
 github.com/saichler/l8srlz/go/serialize/object
 # github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
@@ -169,7 +169,7 @@ github.com/saichler/l8utils/go/utils/shared
 github.com/saichler/l8utils/go/utils/strings
 github.com/saichler/l8utils/go/utils/web
 github.com/saichler/l8utils/go/utils/workers
-# github.com/saichler/l8web v0.0.0-20260915143157-60e7e88ca26b
+# github.com/saichler/l8web v0.0.0-20260915165340-74e4cde904ea
 ## explicit
 github.com/saichler/l8web/go/web/server
 # github.com/saichler/probler v0.0.0-20260523194022-a99896a9e09c

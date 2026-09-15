@@ -76,6 +76,16 @@ func NewQuery(gsql string, resources ifs.IResources) (ifs.IElements, error) {
 	return elems, nil
 }
 
+// NewFromQuery wraps an already-built L8Query object as-is, preserving every
+// field on it (e.g. AaaId stamped by a caller). Unlike NewQuery, which parses
+// a bare L8QL string and can only ever populate the fields derivable from
+// that text, NewFromQuery keeps the exact object passed in -- so a caller
+// that has already set fields like AaaId directly on an *l8api.L8Query
+// (rather than encoding them into Text) does not lose them.
+func NewFromQuery(pq *l8api.L8Query) ifs.IElements {
+	return &Elements{pquery: pq}
+}
+
 // NewNotify creates a new Elements container marked as a notification.
 // Notifications are used in event-driven systems to signal that data
 // has changed and should be processed accordingly.
