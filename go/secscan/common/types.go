@@ -4,6 +4,7 @@ import (
 	l8common "github.com/saichler/l8common/go/common"
 	"github.com/saichler/l8secure-scan/go/types/secscan"
 	"github.com/saichler/l8types/go/ifs"
+	"github.com/saichler/l8types/go/types/l8api"
 )
 
 // RegisterSecscanTypes registers every secscan Prime Object with the
@@ -23,4 +24,12 @@ func RegisterSecscanTypes(resources ifs.IResources) {
 	resources.Registry().Register(&secscan.ImgRefAddRequest{})
 	resources.Registry().Register(&secscan.ImgRefAddResponse{})
 	resources.Registry().Register(&secscan.VulnRepRequest{})
+	// VulnRep's response reuses the generic l8api.L8CsvExportResponse
+	// (VulnRep.go) rather than a custom secscan type -- unlike
+	// ImgRefAddResponse, nothing else in this project ever registered it,
+	// so the web-frontend process failed to deserialize VulnRep's endpoint
+	// definition ("Unknown Type: L8CsvExportResponse"), silently leaving
+	// its Endpoints map empty ("endpoint not found for action VulnRep
+	// area 60 1" on every POST).
+	resources.Registry().Register(&l8api.L8CsvExportResponse{})
 }

@@ -170,7 +170,11 @@ window.SecScanDashboardKpis = (function() {
                 });
             }
             return resp.json();
-        }).then(function(job) {
+        }).then(function(data) {
+            // POST /60/ScanJob's response body is the same generic
+            // {list, metadata} wrapper every query response uses (verified
+            // live), not a bare ScanJob object.
+            const job = data && data.list && data.list[0];
             if (!job || !job.scanJobId) {
                 throw new Error('No scan job returned');
             }

@@ -189,6 +189,19 @@ window.SecScanGroupDetail = (function() {
 
         const container = body.querySelector('#secscan-group-refs-table-container');
         if (container) {
+            // Capturing-phase, not bubbling: the row's own click listener
+            // (Layer8DTable's onRowClick, opening Vulnerability Detail) is
+            // attached directly on the <tr>, a descendant of this
+            // container -- during the bubble phase that listener always
+            // fires BEFORE an event reaches a bubble-phase listener up
+            // here, so stopPropagation() there is already too late (this
+            // was a real, confirmed bug: checking the box also opened
+            // Vulnerability Detail on top of this popup). Capturing at the
+            // container runs before the event ever reaches the row, so
+            // stopping it here prevents onRowClick from firing at all; the
+            // selection toggle itself has to happen in this same listener
+            // (a separate bubble-phase listener on this element would never
+            // be reached once propagation is stopped during capture).
             container.addEventListener('click', function(e) {
                 if (e.target && e.target.classList.contains('secscan-ref-select')) {
                     e.stopPropagation();
@@ -196,12 +209,6 @@ window.SecScanGroupDetail = (function() {
                     const label = e.target.getAttribute('data-label');
                     SecScanImageSelection.toggle(id, label);
                     updateSelectionHint(body);
-                }
-            });
-            // Row click on the checkbox cell itself shouldn't also open Vulnerability Detail.
-            container.addEventListener('mousedown', function(e) {
-                if (e.target && e.target.classList.contains('secscan-ref-select')) {
-                    e.stopPropagation();
                 }
             }, true);
         }
