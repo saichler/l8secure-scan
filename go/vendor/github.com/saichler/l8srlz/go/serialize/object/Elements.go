@@ -76,14 +76,26 @@ func NewQuery(gsql string, resources ifs.IResources) (ifs.IElements, error) {
 	return elems, nil
 }
 
-// NewFromQuery wraps an already-built L8Query object as-is, preserving every
-// field on it (e.g. AaaId stamped by a caller). Unlike NewQuery, which parses
-// a bare L8QL string and can only ever populate the fields derivable from
-// that text, NewFromQuery keeps the exact object passed in -- so a caller
-// that has already set fields like AaaId directly on an *l8api.L8Query
-// (rather than encoding them into Text) does not lose them.
-func NewFromQuery(pq *l8api.L8Query) ifs.IElements {
-	return &Elements{pquery: pq}
+// NewFromQuery parses pq.Text into a fully-structured L8Query exactly like
+// NewQuery (RootType, Criteria, Register, etc. are only ever populated by
+// parsing the text through the L8QL grammar -- they cannot be set directly
+// on a bare incoming *l8api.L8Query), then re-stamps AaaId from pq onto the
+// resulting structured query. AaaId is the one field a caller sets directly
+// on the object rather than encoding into Text (e.g. ServiceHandler.serveHttp
+// stamps it from the validated bearer token), so a plain NewQuery(pq.Text,
+// resources) would silently drop it.
+func NewFromQuery(pq *l8api.L8Query, resources ifs.IResources) (ifs.IElements, error) {
+	if pq.Text == "" {
+		return New(nil, pq), nil
+	}
+	q, e := interpreter.NewQuery(pq.Text, resources)
+	if e != nil {
+		return nil, e
+	}
+	structured := q.Query()
+	structured.AaaId = pq.AaaId
+	elems := &Elements{pquery: structured}
+	return elems, nil
 }
 
 // NewNotify creates a new Elements container marked as a notification.

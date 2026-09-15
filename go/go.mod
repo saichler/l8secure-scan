@@ -5,11 +5,11 @@ go 1.26.1
 require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/lib/pq v1.12.3
-	github.com/saichler/l8bus v0.0.0-20260915180446-6d4ffd75cfeb
+	github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1
 	github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2
 	github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc
 	github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
-	github.com/saichler/l8srlz v0.0.0-20260915180333-9314d9c21cc8
+	github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2
 	github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
 	github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc
 	github.com/saichler/l8utils v0.0.0-20260915163141-cf88b178677b

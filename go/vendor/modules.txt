@@ -71,7 +71,7 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/saichler/l8bus v0.0.0-20260915180446-6d4ffd75cfeb
+# github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1
 ## explicit
 github.com/saichler/l8bus/go/overlay/health
 github.com/saichler/l8bus/go/overlay/metrics
@@ -128,7 +128,7 @@ github.com/saichler/l8services/go/services/recovery
 github.com/saichler/l8services/go/services/replication
 github.com/saichler/l8services/go/services/transaction/requests
 github.com/saichler/l8services/go/services/transaction/states
-# github.com/saichler/l8srlz v0.0.0-20260915180333-9314d9c21cc8
+# github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2
 ## explicit
 github.com/saichler/l8srlz/go/serialize/object
 # github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89

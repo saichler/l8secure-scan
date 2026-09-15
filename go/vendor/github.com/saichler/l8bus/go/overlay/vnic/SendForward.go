@@ -62,11 +62,11 @@ func createElements(any interface{}, resources ifs.IResources) (ifs.IElements, e
 	}
 	pq, ok := any.(*l8api.L8Query)
 	if ok {
-		// Preserve the whole query object (e.g. AaaId stamped by a caller such
-		// as ServiceHandler.serveHttp) instead of reconstructing a fresh
-		// L8Query from just its Text, which would silently drop any field not
-		// encoded in the query string.
-		return object.NewFromQuery(pq), nil
+		// Parses pq.Text same as before, but also preserves AaaId (stamped by
+		// a caller such as ServiceHandler.serveHttp directly on the object,
+		// not encoded into Text) which a plain NewQuery(pq.Text, ...) would
+		// silently drop.
+		return object.NewFromQuery(pq, resources)
 	}
 
 	gsql, ok := any.(string)

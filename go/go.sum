@@ -22,8 +22,8 @@ github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJw
 github.com/opencontainers/image-spec v1.1.1/go.mod h1:qpqAh3Dmcf36wStyyWU+kCeDgrGnAve2nCC8+7h8Q0M=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/saichler/l8bus v0.0.0-20260915180446-6d4ffd75cfeb h1:tjFhhu3BbTJ3TBuu3Nyv/0KKEsm9pJ/PVoNZa3YcXtk=
-github.com/saichler/l8bus v0.0.0-20260915180446-6d4ffd75cfeb/go.mod h1:ZK1m4Zqy9WhGVZXl5znHTr7+/r19rOytqwBqhH02Ui8=
+github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1 h1:UXSsjS1PyKNaXnOJsqNgXZdgB0nFuVazK04eT7xfS80=
+github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1/go.mod h1:ZK1m4Zqy9WhGVZXl5znHTr7+/r19rOytqwBqhH02Ui8=
 github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2 h1:Oz/gSnKfALa4ftC5ewSuFlnntsiNkPkJxbpqEFY4JS4=
 github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2/go.mod h1:O7WSHyHK4HPPkolxZn41hxzA0ufOTo6jDcTqL7KRS8k=
 github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc h1:AVzIBv/vJneOoEhqHSKDyuMyxVF6rVFD/tozCtdkClk=
@@ -40,8 +40,8 @@ github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 h1:2eDzFMHV/qPq
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2/go.mod h1:yCkCd5JQKqKG+dr6h0HYDiLvNAB8uLUUOdWApnWUw24=
 github.com/saichler/l8services v0.0.0-20260915143516-f45bed6c6bc7 h1:Tvs95qi6bfEvBIUruaTe9vfJxXLpCfw0WNVIOpi8W8w=
 github.com/saichler/l8services v0.0.0-20260915143516-f45bed6c6bc7/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
-github.com/saichler/l8srlz v0.0.0-20260915180333-9314d9c21cc8 h1:HylLJQewdLb1QmDr0D8Gyo2dscB6M8VsNFuosi273T0=
-github.com/saichler/l8srlz v0.0.0-20260915180333-9314d9c21cc8/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
+github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2 h1:c35ELO15MmBXO4FjDNzo+gG5qA/alTSui7RvizkI2jw=
+github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89 h1:G3cHYkdzEoJb5Btsoz629zFoYQSmTzCI0EIplwXxZ08=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89/go.mod h1:C4B8Zpv0L/Di/qB0lOWHOXF3r3Pz/6Oabu730TthWsc=
 github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc h1:+SaHuit1ACY+FTfanIVczYPyaxCW+Gvidnf6bMheltw=
