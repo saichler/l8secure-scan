@@ -84,6 +84,14 @@ limitations under the License.
                     <img src="l8ui/images/Layer8Logo.gif" alt="Layer 8 Ecosystem" class="layer8-header-logo">
                     <span class="layer8-header-text">Layer 8 Ecosystem</span>
                 </div>
+                <div class="layer8d-theme-picker">
+                    <button class="layer8d-theme-btn" onclick="Layer8DThemeSwitcher.toggleDropdown()" aria-label="Choose theme">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><path d="M12 2a7 7 0 0 0 0 20V2z"/>
+                        </svg>
+                    </button>
+                    <div class="layer8d-theme-menu"></div>
+                </div>
                 <div class="user-menu">
                     <span class="username">User</span>
                     <button class="logout-btn" onclick="logout()">Logout</button>

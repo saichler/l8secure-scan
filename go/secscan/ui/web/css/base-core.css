@@ -118,9 +118,9 @@ limitations under the License.
 
 body {
     font-family: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    background: var(--layer8d-bg-light);
     background-attachment: fixed;
-    color: var(--text-primary);
+    color: var(--layer8d-text-dark);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -140,7 +140,7 @@ body {
     grid-template-columns: 260px 1fr;
     grid-template-rows: 60px 1fr;
     height: 100vh;
-    background: var(--bg-primary);
+    background: var(--layer8d-bg-light);
 }
 
 /* ============================================ */
@@ -149,14 +149,14 @@ body {
 
 .app-header {
     grid-area: header;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--layer8d-bg-white);
     backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    border-bottom: 1px solid var(--layer8d-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 30px;
-    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--layer8d-shadow-md);
     position: relative;
     z-index: 100;
 }
@@ -185,7 +185,7 @@ body {
     left: 0;
     right: 0;
     height: 1px;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--layer8d-border);
     box-shadow: none;
 }
 
@@ -203,7 +203,7 @@ body {
 
 .header-title h1 {
     font-size: 22px;
-    color: #2d3748;
+    color: var(--layer8d-text-dark);
     font-weight: 700;
     margin-bottom: 0;
     letter-spacing: 2px;
@@ -214,7 +214,7 @@ body {
 
 .header-subtitle {
     font-size: 9px;
-    color: #718096;
+    color: var(--layer8d-text-muted);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.5px;
@@ -232,7 +232,7 @@ body {
     align-items: center;
     gap: 10px;
     font-size: 9px;
-    color: #718096;
+    color: var(--layer8d-text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 700;
@@ -246,7 +246,7 @@ body {
 
 .layer8-header-text {
     font-weight: 700;
-    color: #4a5568;
+    color: var(--layer8d-text-medium);
     letter-spacing: 1px;
 }
 
@@ -257,7 +257,7 @@ body {
 }
 
 .username {
-    color: #2d3748;
+    color: var(--layer8d-text-dark);
     font-weight: 700;
     font-size: 12px;
     text-transform: uppercase;
@@ -266,7 +266,7 @@ body {
 
 .logout-btn {
     padding: 8px 20px;
-    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    background: linear-gradient(135deg, var(--layer8d-primary) 0%, var(--layer8d-primary-dark) 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -277,13 +277,13 @@ body {
     letter-spacing: 1.5px;
     transition: all 0.3s ease;
     font-family: 'Figtree', sans-serif;
-    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+    box-shadow: var(--layer8d-shadow-md);
 }
 
 .logout-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.4);
-    background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+    box-shadow: var(--layer8d-shadow-lg);
+    background: linear-gradient(135deg, var(--layer8d-primary-dark) 0%, var(--layer8d-primary) 100%);
 }
 
 /* ============================================ */
@@ -292,9 +292,9 @@ body {
 
 .sidebar {
     grid-area: sidebar;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--layer8d-bg-white);
     backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    border-right: 1px solid var(--layer8d-border);
     overflow-y: auto;
     padding: 15px 0;
 }
@@ -309,7 +309,7 @@ body {
     gap: 12px;
     padding: 12px 20px;
     margin: 1px 0;
-    color: #4a5568;
+    color: var(--layer8d-text-medium);
     text-decoration: none;
     transition: all 0.3s ease;
     border-left: 3px solid transparent;
@@ -321,17 +321,17 @@ body {
 }
 
 .nav-link:hover {
-    background: rgba(14, 165, 233, 0.1);
-    color: #0ea5e9;
-    border-left-color: #0ea5e9;
+    background: var(--layer8d-bg-hover);
+    color: var(--layer8d-primary);
+    border-left-color: var(--layer8d-primary);
 }
 
 .nav-link.active {
-    background: rgba(14, 165, 233, 0.15);
-    color: #0ea5e9;
-    border-left-color: #0ea5e9;
+    background: var(--layer8d-bg-hover);
+    color: var(--layer8d-primary);
+    border-left-color: var(--layer8d-primary);
     font-weight: 600;
-    box-shadow: inset 3px 0 0 #0ea5e9;
+    box-shadow: inset 3px 0 0 var(--layer8d-primary);
 }
 
 .nav-icon {
@@ -347,7 +347,7 @@ body {
 
 .main-content {
     grid-area: content;
-    background: #2d3748;
+    background: var(--layer8d-bg-light);
     overflow: hidden;
     padding: 0;
     display: flex;
@@ -362,11 +362,11 @@ body {
 }
 
 .section-container {
-    background: white;
+    background: var(--layer8d-bg-white);
     border-radius: 16px;
     padding: 7px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
+    box-shadow: var(--layer8d-shadow-sm);
+    border: 1px solid var(--layer8d-border);
     overflow: hidden;
     flex: 1;
     min-height: 0;
@@ -376,10 +376,10 @@ body {
 
 .section-title {
     font-size: 24px;
-    color: #2d3748;
+    color: var(--layer8d-text-dark);
     margin-bottom: 25px;
     font-weight: 600;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--layer8d-border);
     padding-bottom: 15px;
     letter-spacing: 1px;
     text-transform: uppercase;
@@ -393,12 +393,12 @@ body {
     content: '';
     width: 3px;
     height: 30px;
-    background: #0ea5e9;
+    background: var(--layer8d-primary);
     box-shadow: none;
 }
 
 .section-content {
-    color: #4a5568;
+    color: var(--layer8d-text-medium);
     font-size: 14px;
     line-height: 1.8;
     flex: 1;
@@ -408,7 +408,7 @@ body {
 }
 
 .section-description {
-    color: #718096;
+    color: var(--layer8d-text-muted);
     font-size: 12px;
     font-style: normal;
     margin-bottom: 20px;
@@ -448,17 +448,17 @@ body.iframe-modal-active .table-container {
 }
 
 ::-webkit-scrollbar-track {
-    background: #f7fafc;
-    border-left: 1px solid #e2e8f0;
+    background: var(--layer8d-bg-light);
+    border-left: 1px solid var(--layer8d-border);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
+    background: var(--layer8d-border-dark);
     border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #0ea5e9;
+    background: var(--layer8d-primary);
 }
 
 /* ============================================ */

@@ -20,6 +20,14 @@ limitations under the License.
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vulnerabilities Doctor</title>
     <script>
+        // Default this project to the Noir Monochrome theme (l8ui, shared
+        // across projects) unless the user already picked a different one
+        // via the theme picker -- localStorage is origin-scoped, so setting
+        // it here before navigating is visible to l8ui/login/'s own
+        // Layer8DThemeSwitcher.init() call on the very next page load.
+        if (!localStorage.getItem('layer8d-theme')) {
+            localStorage.setItem('layer8d-theme', 'noir');
+        }
         window.location.href = 'l8ui/login/';
     </script>
 </head>

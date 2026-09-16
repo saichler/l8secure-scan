@@ -117,7 +117,14 @@ window.SecScanDashboardKpis = (function() {
                         categoryField: 'imageName',
                         valueField: 'totalVulnCount',
                         aggregation: 'sum',
-                        title: 'Top Images with Vulnerabilities'
+                        title: 'Top Images with Vulnerabilities',
+                        // Full-width container would otherwise hit the
+                        // default formula's 400px ceiling (layer8d-chart-
+                        // core.js's height is normally width-derived) --
+                        // fixed here (svg height, title/controls/padding
+                        // add ~110px on top) so the whole dashboard fits
+                        // the viewport without scrolling (measured).
+                        height: 290
                     }
                 });
                 topVulnChart.init();
@@ -263,7 +270,6 @@ window.SecScanDashboardKpis = (function() {
         customContent:
             '<div class="secscan-dashboard-content">' +
             '<div id="secscan-dashboard-kpi-strip" class="secscan-kpi-strip secscan-kpi-loading">Loading…</div>' +
-            '<div id="secscan-top-vuln-chart" class="secscan-top-vuln-chart"></div>' +
             '<div class="secscan-dashboard-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
@@ -271,6 +277,7 @@ window.SecScanDashboardKpis = (function() {
             // Empty on purpose -- Layer8DProgressBar.attach() populates this
             // container with its own generic markup.
             '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden></div>' +
+            '<div id="secscan-top-vuln-chart" class="secscan-top-vuln-chart"></div>' +
             '</div>'
     });
 

@@ -80,6 +80,18 @@ document.addEventListener('DOMContentLoaded', async function() {
         await Layer8DConfig.load();
     }
 
+    // Layer8DThemeSwitcher.init() was never called anywhere on this page
+    // (only the login page called it) -- data-theme is an attribute on
+    // <html>, which does not survive the full page navigation from login
+    // to app.html, so the saved/default theme was never actually applied
+    // here at all, regardless of what was picked on the login page.
+    if (typeof Layer8DThemeSwitcher !== 'undefined') {
+        if (!localStorage.getItem('layer8d-theme')) {
+            localStorage.setItem('layer8d-theme', 'noir');
+        }
+        Layer8DThemeSwitcher.init();
+    }
+
     // Check if bearer token exists (user is logged in)
     const bearerToken = sessionStorage.getItem('bearerToken');
     if (!bearerToken) {

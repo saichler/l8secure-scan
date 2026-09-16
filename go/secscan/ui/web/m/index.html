@@ -61,6 +61,11 @@ limitations under the License.
     </div>
 
     <script>
+        // Default this project to the Noir Monochrome theme (l8ui, shared
+        // across projects) unless the user already picked a different one.
+        if (!localStorage.getItem('layer8d-theme')) {
+            localStorage.setItem('layer8d-theme', 'noir');
+        }
         const token = sessionStorage.getItem('bearerToken') || localStorage.getItem('bearerToken');
         setTimeout(function() {
             if (!token) {
