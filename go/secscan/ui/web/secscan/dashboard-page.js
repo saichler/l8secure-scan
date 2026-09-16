@@ -97,19 +97,30 @@ window.SecScanDashboardKpis = (function() {
                 withTotals.sort(function(a, b) { return b.totalVulnCount - a.totalVulnCount; });
                 const top = withTotals.slice(0, 10);
 
-                if (!topVulnChart) {
-                    topVulnChart = new Layer8DChart({
-                        containerId: 'secscan-top-vuln-chart',
-                        viewConfig: {
-                            chartType: 'bar',
-                            categoryField: 'imageName',
-                            valueField: 'totalVulnCount',
-                            aggregation: 'sum',
-                            title: 'Top Images with Vulnerabilities'
-                        }
-                    });
-                    topVulnChart.init();
+                // Re-entering this section (Layer8SectionGenerator) tears
+                // down and recreates #secscan-top-vuln-chart's DOM node each
+                // time -- a cached topVulnChart instance's own .container
+                // reference would still point at the OLD, now-detached
+                // node, so it would keep rendering invisibly into a element
+                // no longer on the page (confirmed real regression: chart
+                // vanished on Dashboard -> Images -> back to Dashboard).
+                // destroy() releases its resize observer/tooltip before a
+                // fresh instance is bound to the current, real DOM node.
+                if (topVulnChart) {
+                    topVulnChart.destroy();
+                    topVulnChart = null;
                 }
+                topVulnChart = new Layer8DChart({
+                    containerId: 'secscan-top-vuln-chart',
+                    viewConfig: {
+                        chartType: 'bar',
+                        categoryField: 'imageName',
+                        valueField: 'totalVulnCount',
+                        aggregation: 'sum',
+                        title: 'Top Images with Vulnerabilities'
+                    }
+                });
+                topVulnChart.init();
                 topVulnChart.setData(top);
             }).catch(function(err) {
                 console.error('Top vulnerabilities chart: failed to load', err);
@@ -240,7 +251,17 @@ window.SecScanDashboardKpis = (function() {
         subtitle: 'Overview, image ingestion, and scanning',
         icon: '📈',
         modules: [],
+        // .section-content/.main-content are flex containers with
+        // overflow:hidden by framework design (base-core.css) -- normal
+        // module content is a single self-scrolling Layer8DTable, but this
+        // page's KPI cards + chart + toolbar + progress bar are a flat
+        // stack with no scrolling of their own, so once their combined
+        // height exceeds the available flex space they were silently
+        // clipped at the bottom instead of scrolling. Wrapping them in our
+        // own scrollable container (secscan-dashboard-content, below)
+        // fixes this without touching shared l8ui/base-core.css files.
         customContent:
+            '<div class="secscan-dashboard-content">' +
             '<div id="secscan-dashboard-kpi-strip" class="secscan-kpi-strip secscan-kpi-loading">Loading…</div>' +
             '<div id="secscan-top-vuln-chart" class="secscan-top-vuln-chart"></div>' +
             '<div class="secscan-dashboard-toolbar">' +
@@ -249,7 +270,8 @@ window.SecScanDashboardKpis = (function() {
             '</div>' +
             // Empty on purpose -- Layer8DProgressBar.attach() populates this
             // container with its own generic markup.
-            '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden></div>'
+            '<div id="secscan-scan-progress" class="secscan-scan-progress" hidden></div>' +
+            '</div>'
     });
 
     let attached = false;

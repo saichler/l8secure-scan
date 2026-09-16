@@ -11,7 +11,7 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .secscan-kpi-loading {
@@ -19,8 +19,23 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     padding: 12px 0;
 }
 
+.secscan-dashboard-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 .secscan-top-vuln-chart {
-    margin-bottom: 12px;
+    /* Layer8DChart's own height formula (layer8d-chart-core.js) is
+       max(300, min(width*0.6, 400)) -- driven only by the container's
+       WIDTH, with no config to override it directly. At full dashboard
+       width that renders a ~400px svg (plus title/controls), pushing the
+       whole page past the viewport and forcing a scroll. Capping the
+       width here brings it down to the formula's 300px floor instead,
+       small enough for the KPI cards + chart + toolbar to fit on screen
+       together without scrolling on a typical viewport. */
+    max-width: 420px;
+    margin-bottom: 8px;
 }
 
 .secscan-dashboard-toolbar {

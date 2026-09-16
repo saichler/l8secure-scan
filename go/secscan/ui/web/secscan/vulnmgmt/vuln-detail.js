@@ -52,7 +52,18 @@ window.SecScanVulnDetail = (function() {
 
     function renderFindingsTable(imageRefId) {
         const columns = [
-            ...Layer8ColumnFactory.col('cveId', 'CVE ID'),
+            // Layer8ColumnFactory.link's onClick is never wired up anywhere
+            // in Layer8DTable's event handling (verified -- no
+            // data-action="click" handling exists in layer8d-table-events.js),
+            // so a real <a href> anchor is used directly instead; no
+            // onRowClick is set on this table, so there's no row-click
+            // handler to conflict with.
+            ...Layer8ColumnFactory.custom('cveId', 'CVE ID', function(item) {
+                var id = item.cveId || '';
+                if (!id) return '';
+                return '<a href="https://nvd.nist.gov/vuln/detail/' + encodeURIComponent(id) +
+                    '" target="_blank" rel="noopener noreferrer">' + Layer8DUtils.escapeHtml(id) + '</a>';
+            }, { sortKey: 'cveId' }),
             ...Layer8ColumnFactory.col('packageName', 'Package'),
             ...Layer8ColumnFactory.col('installedVersion', 'Installed Version'),
             ...Layer8ColumnFactory.col('fixedVersion', 'Fixed Version'),
