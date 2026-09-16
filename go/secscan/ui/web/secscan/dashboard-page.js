@@ -272,7 +272,10 @@ window.SecScanDashboardKpis = (function() {
     Layer8SectionConfigs.register('dashboard', {
         title: 'Vulnerabilities Dashboard',
         subtitle: 'Overview, image ingestion, and scanning',
-        icon: '📈',
+        // Real inline SVG (stroke="currentColor") instead of an emoji --
+        // emoji render with their own fixed built-in colors on every
+        // theme and can't be recolored via CSS.
+        icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></svg>',
         modules: [],
         // .section-content/.main-content are flex containers with
         // overflow:hidden by framework design (base-core.css) -- normal

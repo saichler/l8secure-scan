@@ -122,7 +122,11 @@ html, body {
     font-size: 14px;
 }
 .sidebar-item.active { background: var(--layer8d-bg-light, #f1f5f9); font-weight: 600; }
-.sidebar-item-icon { font-size: 18px; width: 22px; text-align: center; }
+.sidebar-item-icon { font-size: 18px; width: 22px; text-align: center; display: inline-flex; justify-content: center; }
+/* Sizing for a real <svg> icon (stroke="currentColor", theme-aware) --
+   emoji render with their own fixed multi-color glyph on every theme
+   and can't be recolored via CSS. */
+.sidebar-item-icon svg { width: 18px; height: 18px; }
 
 .sidebar-user {
     border-top: 1px solid var(--layer8d-border, #e2e8f0);

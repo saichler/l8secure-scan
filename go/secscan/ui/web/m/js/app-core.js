@@ -146,7 +146,7 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
                 console.error('Error loading section:', error);
                 contentArea.innerHTML = `
                     <div class="nav-empty-state">
-                        <div class="nav-empty-state-icon">&#x26A0;&#xFE0F;</div>
+                        <div class="nav-empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
                         <h3>Failed to load</h3>
                         <p>Please try again</p>
                         <button class="mobile-popup-btn mobile-popup-btn-save" onclick="MobileApp.loadSection('${section}', true)">Retry</button>
