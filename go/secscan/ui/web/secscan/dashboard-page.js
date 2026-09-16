@@ -42,12 +42,26 @@ window.SecScanDashboardKpis = (function() {
         });
     }
 
+    // Layer8DWidget.render() only ever renders kpi.iconSvg verbatim -- the
+    // kpi.icon key ('icon-image' etc, kept for its own CSS class hook) was
+    // never looked up anywhere, so these 4 cards rendered with no icon at
+    // all (confirmed: Layer8DWidget.renderEnhancedStatsGrid is the only
+    // place that resolves an icon key, via a caller-supplied iconMap, and
+    // nothing here ever called it). stroke="currentColor" so each icon
+    // follows .layer8d-widget-icon's themed `color`.
+    const KPI_ICONS = {
+        'icon-image': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+        'icon-clock': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+        'icon-alert': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        'icon-question': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+    };
+
     function renderStrip(kpis) {
         const cards = [
-            Layer8DWidget.render({ label: 'Images', icon: 'icon-image' }, kpis.totalGroups, {}),
-            Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock' }, kpis.pendingScans, {}),
-            Layer8DWidget.render({ label: 'Critical CVEs', icon: 'icon-alert' }, kpis.criticalCves, {}),
-            Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question' }, kpis.unscannedGroups, {})
+            Layer8DWidget.render({ label: 'Images', icon: 'icon-image', iconSvg: KPI_ICONS['icon-image'] }, kpis.totalGroups, {}),
+            Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock', iconSvg: KPI_ICONS['icon-clock'] }, kpis.pendingScans, {}),
+            Layer8DWidget.render({ label: 'Critical CVEs', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, kpis.criticalCves, {}),
+            Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question', iconSvg: KPI_ICONS['icon-question'] }, kpis.unscannedGroups, {})
         ];
         return '<div class="secscan-kpi-strip">' + cards.join('') + '</div>';
     }
