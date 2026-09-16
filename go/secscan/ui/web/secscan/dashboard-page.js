@@ -124,7 +124,9 @@ window.SecScanDashboardKpis = (function() {
                         // fixed here (svg height, title/controls/padding
                         // add ~110px on top) so the whole dashboard fits
                         // the viewport without scrolling (measured).
-                        height: 290
+                        // 290 still overflowed below the fold on shorter
+                        // viewports -- reduced 20% (290 * 0.8 = 232).
+                        height: 232
                     }
                 });
                 topVulnChart.init();
