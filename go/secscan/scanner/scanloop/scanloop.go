@@ -14,7 +14,12 @@ import (
 	"github.com/saichler/l8utils/go/utils/workers"
 )
 
-// imagePoolSize bounds concurrency across one job's images.
+// imagePoolSize bounds concurrency across one job's images. The actual
+// `trivy` CLI invocation inside each of these workers is serialized by
+// trivy.go's own trivyMu (Trivy's local cache directory is one shared
+// on-disk store, not safe for concurrent CLI processes) -- this pool size
+// still lets each image's ImageRef fetch/status-update/findings-persist
+// steps around that one call overlap with other images' Trivy runs.
 const imagePoolSize = 4
 
 // Run scans every image in job. Fans out across job's images with bounded

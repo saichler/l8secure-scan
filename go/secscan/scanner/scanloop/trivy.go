@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/saichler/l8secure-scan/go/types/secscan"
 )
@@ -75,6 +76,17 @@ func isImageNotFound(stderrText string) bool {
 	return false
 }
 
+// trivyMu serializes actual `trivy` CLI invocations. scanloop.go scans up
+// to imagePoolSize (4) images concurrently, but Trivy's local cache
+// directory (vulnerability DB + the fanal filesystem/layer-analysis cache)
+// is one shared bbolt-backed store on disk -- running the CLI concurrently
+// against it produces a real, confirmed-live failure: "Failed to acquire
+// cache or database lock ... unable to initialize fs cache: cache may be
+// in use by another process: timeout". Serializing only the CLI exec
+// (not all of scanOneImage) keeps the ImageRef fetch/parse/persist steps
+// around it concurrent -- those don't touch Trivy's cache at all.
+var trivyMu sync.Mutex
+
 // runTrivyCLI shells out to `trivy image --format json <target>` and
 // parses its output. tag takes precedence over digest when both/neither
 // are empty is a caller bug (PrepareImageRef always sets at least a tag
@@ -89,6 +101,9 @@ func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	default:
 		return nil, errors.New("image reference has neither tag nor digest")
 	}
+
+	trivyMu.Lock()
+	defer trivyMu.Unlock()
 
 	cmd := exec.Command("trivy", "image", "--format", "json", target)
 	var stdout, stderr bytes.Buffer
