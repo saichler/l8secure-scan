@@ -284,6 +284,18 @@ body {
     width: 20px;
     text-align: center;
     opacity: 1;
+    display: inline-flex;
+    justify-content: center;
+}
+
+/* Sizing for the real <svg> icons (stroke="currentColor", theme-aware)
+   that replaced the hardcoded emoji glyphs here -- emoji render with
+   their own fixed multi-color glyph on every theme and can't be
+   recolored via CSS, which is why the sidebar used to look identically
+   "colorful" regardless of the active theme (noir included). */
+.nav-icon svg {
+    width: 18px;
+    height: 18px;
 }
 
 /* ============================================ */
@@ -320,12 +332,14 @@ body {
 }
 
 .section-title {
-    font-size: 24px;
+    /* Reduced 20% across the board (font-size/margin/padding) to cut the
+       title block's overall height, per explicit user request. */
+    font-size: 19px;
     color: var(--layer8d-text-dark);
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     font-weight: 600;
     border-bottom: 1px solid var(--layer8d-border);
-    padding-bottom: 15px;
+    padding-bottom: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
     display: flex;
@@ -337,7 +351,7 @@ body {
 .section-title::before {
     content: '';
     width: 3px;
-    height: 30px;
+    height: 24px;
     background: var(--layer8d-primary);
     box-shadow: none;
 }

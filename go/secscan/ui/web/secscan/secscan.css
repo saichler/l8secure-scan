@@ -140,3 +140,12 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
    l8ui/shared/layer8d-progress-bar.css (Layer8DProgressBar injects its own
    markup with those classes) -- this file only keeps the project-specific
    outer spacing. */
+
+/* Images (ImageGroup) table: the Name column is what a user actually scans
+   the list for -- give it real room (>=3x the other, mostly-numeric
+   columns) instead of the equal split Layer8DTable's table-layout:fixed
+   gives every column by default. The remaining ~8 columns split what's
+   left evenly (~8.4% each), so 33% is comfortably >=3x that. */
+#images-groups-table-container th[data-column="imageName"] {
+    width: 33%;
+}
