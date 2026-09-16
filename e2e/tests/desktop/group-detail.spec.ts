@@ -3,10 +3,20 @@ import { NavPage } from '../../pages/nav.page';
 import { PopupPage } from '../../pages/popup.page';
 import { LoginPage } from '../../pages/login.page';
 import { OPSADMIN_USER, OPSADMIN_PASS } from '../../fixtures/env';
+import { deleteImageGroupByName } from '../../fixtures/cleanup';
 
 const GROUPS_CONTAINER = '#images-groups-table-container';
 
 test.describe('group detail', () => {
+  let createdGroupName: string | undefined;
+
+  test.afterEach(async ({ page }) => {
+    if (createdGroupName) {
+      await deleteImageGroupByName(page, createdGroupName);
+      createdGroupName = undefined;
+    }
+  });
+
   test('trend panel, checkbox selection, and a real scan run reach the dashboard progress bar', async ({ page }) => {
     test.setTimeout(150000); // real Trivy scan against a real cluster, not mocked
     const nav = new NavPage(page);
@@ -28,6 +38,7 @@ test.describe('group detail', () => {
     await login.resolveCustomerPickerIfPresent('Local');
 
     const imageGroupName = `repo-${Date.now()}`;
+    createdGroupName = imageGroupName;
     const repo = `e2e/${imageGroupName}`;
 
     // Seed one never-scanned image via the real Add Images flow (not a

@@ -1,11 +1,21 @@
 import { test, expect } from '../../fixtures/test';
 import { NavPage } from '../../pages/nav.page';
 import { PopupPage } from '../../pages/popup.page';
+import { deleteImageGroupByName } from '../../fixtures/cleanup';
 
 // Container id per AddingModule convention (module 'images', service 'groups').
 const GROUPS_CONTAINER = '#images-groups-table-container';
 
 test.describe('add images (bulk ingestion)', () => {
+  let createdGroupName: string | undefined;
+
+  test.afterEach(async ({ opsadminPage: page }) => {
+    if (createdGroupName) {
+      await deleteImageGroupByName(page, createdGroupName);
+      createdGroupName = undefined;
+    }
+  });
+
   test('valid, duplicate, and unparseable lines produce the correct created/skipped/errors split', async ({ opsadminPage: page }) => {
     const nav = new NavPage(page);
     const popup = new PopupPage(page);
@@ -15,6 +25,7 @@ test.describe('add images (bulk ingestion)', () => {
     // a leading "e2e/" would be stripped, so imageGroupName below is what
     // actually shows up in the Images list, not the full repoName.
     const imageGroupName = `repo-${Date.now()}`;
+    createdGroupName = imageGroupName;
     const repo = `e2e/${imageGroupName}`;
     const validLine = `${repo}:v1`;
     // ParseImageRefString rejects any value containing a single-quote
