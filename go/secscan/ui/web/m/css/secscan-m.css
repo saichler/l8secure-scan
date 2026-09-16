@@ -213,8 +213,6 @@ html, body {
     text-align: left;
     border-bottom: 1px solid var(--layer8d-border, #e2e8f0);
 }
-.secscan-m-trend-empty { font-size: 12px; color: var(--layer8d-text-light, #a0aec0); }
-
 .secscan-m-group-toolbar { margin-bottom: 8px; }
 /* Bar/fill/label styling lives in the generic
    l8ui/shared/layer8d-progress-bar.css -- this is just the outer spacing. */

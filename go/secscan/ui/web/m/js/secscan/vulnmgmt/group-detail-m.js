@@ -5,7 +5,7 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 */
 
 // Mobile Image Group Detail popup (PRD §11.7, parity with desktop's
-// group-detail.js): header with editable Category + Trend panel, an
+// group-detail.js): header with editable Category, an
 // embedded ImageRef Layer8MTable (baseWhereClause-scoped, custom checkbox
 // multi-select -- Layer8MTable/Layer8MEditTable have no native
 // row-selection either, verified), a "Scan Selected" toolbar action, and
@@ -80,27 +80,12 @@ window.SecScanGroupDetail_M = (function() {
     }
 
     function headerHtml(group) {
-        const newest = group.newestCounts || null;
-        const oldest = group.oldestCounts || null;
-        const trendRows = SecScanVuln.SEVERITIES.map(function(sev) {
-            const pct = SecScanVuln.reductionPct(newest, oldest, group.scannedRefCount, sev);
-            const label = sev.charAt(0).toUpperCase() + sev.slice(1);
-            const nv = newest ? (newest[sev] || 0) : '';
-            const ov = oldest ? (oldest[sev] || 0) : '';
-            return '<tr><td>' + label + '</td><td>' + nv + '</td><td>' + ov + '</td><td>' +
-                SecScanVuln.formatReductionPct(pct) + '</td></tr>';
-        }).join('');
-
         return '<div class="secscan-m-group-header">' +
             '<div class="secscan-m-category-row" id="secscan-m-category-row">' +
             '<span class="secscan-m-category-label">Category:</span> ' +
             '<span id="secscan-m-category-value">' + Layer8MUtils.escapeHtml(SecScanVuln.getCategoryName(group.categoryId)) + '</span>' +
             '<span class="secscan-m-category-tap-hint">(tap to change)</span>' +
-            '</div>' +
-            '<table class="secscan-m-trend-table"><thead><tr><th>Severity</th><th>Newest</th><th>Oldest</th><th>Reduction</th></tr></thead>' +
-            '<tbody>' + trendRows + '</tbody></table>' +
-            (newest && oldest ? '' : '<p class="secscan-m-trend-empty">Trend data available once at least one scan completes.</p>') +
-            '</div>';
+            '</div></div>';
     }
 
     function attachCategoryPicker(body, group) {
