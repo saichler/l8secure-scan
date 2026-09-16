@@ -130,10 +130,17 @@ window.SecScanGroupDetail_M = (function() {
             });
     }
 
-    function sevCell(counts, sevKey) {
-        if (!counts) return '';
-        var v = counts[sevKey];
-        return (v === undefined || v === null) ? '' : String(v);
+    // Same "T:<total> C:<critical> H:<high> M:<medium> L:<low>" format as
+    // desktop's group-detail.js (explicit user request) -- Total and
+    // Distinct stay separate columns since they're different metrics (raw
+    // vulnerability-instance count vs. unique CVE count), not severities.
+    function vulnCell(counts) {
+        var c = (counts && counts.critical) || 0;
+        var h = (counts && counts.high) || 0;
+        var m = (counts && counts.medium) || 0;
+        var l = (counts && counts.low) || 0;
+        var t = c + h + m + l;
+        return 'T:' + t + ' C:' + c + ' H:' + h + ' M:' + m + ' L:' + l;
     }
 
     function updateScanButton(body) {
@@ -156,14 +163,8 @@ window.SecScanGroupDetail_M = (function() {
                 return item.buildDate ? Layer8MUtils.formatDate(item.buildDate) : 'Resolving…';
             }, { sortKey: 'buildDate' })[0], { secondary: true }),
             Object.assign({}, Layer8ColumnFactory.status('scanStatus', 'Scan Status', SCAN_STATUS.values, renderScanStatus)[0], { secondary: true }),
-            ...Layer8ColumnFactory.custom('totalCounts', 'Total (C/H/M/L)', function(item) {
-                return sevCell(item.totalCounts, 'critical') + '/' + sevCell(item.totalCounts, 'high') + '/' +
-                    sevCell(item.totalCounts, 'medium') + '/' + sevCell(item.totalCounts, 'low');
-            }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct (C/H/M/L)', function(item) {
-                return sevCell(item.distinctCounts, 'critical') + '/' + sevCell(item.distinctCounts, 'high') + '/' +
-                    sevCell(item.distinctCounts, 'medium') + '/' + sevCell(item.distinctCounts, 'low');
-            }, { sortKey: false })
+            ...Layer8ColumnFactory.custom('totalCounts', 'Total', function(item) { return vulnCell(item.totalCounts); }, { sortKey: false }),
+            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct', function(item) { return vulnCell(item.distinctCounts); }, { sortKey: false })
         ];
 
         refTable = new Layer8MTable('secscan-m-group-refs-container', {
