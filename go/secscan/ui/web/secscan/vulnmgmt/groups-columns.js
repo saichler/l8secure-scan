@@ -16,6 +16,17 @@ window.SecScanVuln = window.SecScanVuln || {};
         return (v === undefined || v === null) ? '' : String(v);
     }
 
+    // Consolidated "T:<total> C:<critical> H:<high> M:<medium> L:<low>"
+    // format, replacing one column per severity (explicit user request).
+    function vulnCell(counts) {
+        var c = (counts && counts.critical) || 0;
+        var h = (counts && counts.high) || 0;
+        var m = (counts && counts.medium) || 0;
+        var l = (counts && counts.low) || 0;
+        var t = c + h + m + l;
+        return 'T:' + t + ' C:' + c + ' H:' + h + ' M:' + m + ' L:' + l;
+    }
+
     SecScanVuln.columns = SecScanVuln.columns || {};
     SecScanVuln.columns.ImageGroup = [
         ...col.col('imageName', 'Name'),
@@ -32,10 +43,7 @@ window.SecScanVuln = window.SecScanVuln || {};
         ...col.custom('latestBuildDate', 'Newest Build Date', function(item) {
             return item.latestBuildDate ? Layer8DUtils.formatDate(item.latestBuildDate) : 'Resolving…';
         }, { sortKey: 'latestBuildDate' }),
-        ...col.custom('newestCounts', 'Newest Critical', function(item) { return sevCell(item.newestCounts, 'critical'); }, { sortKey: false }),
-        ...col.custom('newestCounts', 'Newest High', function(item) { return sevCell(item.newestCounts, 'high'); }, { sortKey: false }),
-        ...col.custom('newestCounts', 'Newest Medium', function(item) { return sevCell(item.newestCounts, 'medium'); }, { sortKey: false }),
-        ...col.custom('newestCounts', 'Newest Low', function(item) { return sevCell(item.newestCounts, 'low'); }, { sortKey: false }),
+        ...col.custom('newestCounts', 'Vulnerabilities', function(item) { return vulnCell(item.newestCounts); }, { sortKey: false }),
         ...col.custom('trend', 'Trend', function(item) {
             var parts = SecScanVuln.SEVERITIES.map(function(sev) {
                 var pct = SecScanVuln.reductionPct(item.newestCounts, item.oldestCounts, item.scannedRefCount, sev);

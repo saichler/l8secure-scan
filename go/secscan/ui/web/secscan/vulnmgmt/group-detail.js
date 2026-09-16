@@ -157,14 +157,8 @@ window.SecScanGroupDetail = (function() {
                 return item.buildDate ? Layer8DUtils.formatDate(item.buildDate) : 'Resolving…';
             }, { sortKey: 'buildDate' }),
             ...Layer8ColumnFactory.status('scanStatus', 'Scan Status', SCAN_STATUS.values, renderScanStatus),
-            ...Layer8ColumnFactory.custom('totalCounts', 'Total C', function(item) { return sevCell(item.totalCounts, 'critical'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('totalCounts', 'Total H', function(item) { return sevCell(item.totalCounts, 'high'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('totalCounts', 'Total M', function(item) { return sevCell(item.totalCounts, 'medium'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('totalCounts', 'Total L', function(item) { return sevCell(item.totalCounts, 'low'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct C', function(item) { return sevCell(item.distinctCounts, 'critical'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct H', function(item) { return sevCell(item.distinctCounts, 'high'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct M', function(item) { return sevCell(item.distinctCounts, 'medium'); }, { sortKey: false }),
-            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct L', function(item) { return sevCell(item.distinctCounts, 'low'); }, { sortKey: false })
+            ...Layer8ColumnFactory.custom('totalCounts', 'Total', function(item) { return vulnCell(item.totalCounts); }, { sortKey: false }),
+            ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct', function(item) { return vulnCell(item.distinctCounts); }, { sortKey: false })
         ];
 
         refTable = new Layer8DTable({
@@ -217,6 +211,21 @@ window.SecScanGroupDetail = (function() {
         if (!counts) return '';
         var v = counts[sevKey];
         return (v === undefined || v === null) ? '' : String(v);
+    }
+
+    // Consolidated "T:<total> C:<critical> H:<high> M:<medium> L:<low>"
+    // format, replacing one column per severity (explicit user request).
+    // Total and Distinct stay as two separate columns -- they're two
+    // different metrics (raw vulnerability-instance count vs. unique CVE
+    // count), not severities, so merging them into a single column would
+    // conflate two different things rather than consolidate one.
+    function vulnCell(counts) {
+        var c = (counts && counts.critical) || 0;
+        var h = (counts && counts.high) || 0;
+        var m = (counts && counts.medium) || 0;
+        var l = (counts && counts.low) || 0;
+        var t = c + h + m + l;
+        return 'T:' + t + ' C:' + c + ' H:' + h + ' M:' + m + ' L:' + l;
     }
 
     // Shows the running cross-popup/cross-page selection count -- the
