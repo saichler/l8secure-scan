@@ -1,6 +1,7 @@
 package scanloop
 
 import (
+	"errors"
 	"time"
 
 	l8common "github.com/saichler/l8common/go/common"
@@ -33,6 +34,9 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 
 	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest)
 	if err != nil {
+		if errors.Is(err, ErrImageNotFound) {
+			return missingImage(ref, err.Error(), vnic)
+		}
 		return failImage(ref, err.Error(), vnic)
 	}
 
@@ -58,6 +62,21 @@ func failImage(ref *secscan.ImageRef, reason string, vnic ifs.IVNic) bool {
 	ref.ScanError = reason
 	if err := l8common.PutEntity(scommon.ImageRefServiceName, scommon.ServiceArea, ref, vnic); err != nil {
 		vnic.Resources().Logger().Error("scanloop: failed to mark ImageRef FAILED ", ref.ImageRefId, ": ", err.Error())
+	}
+	return false
+}
+
+// missingImage marks an ImageRef MISSING rather than FAILED -- the image
+// reference itself couldn't be resolved (bad tag/digest, deleted from the
+// registry, repo doesn't exist), as opposed to Trivy running but failing
+// for some other reason. Distinct from FAILED so a user can tell "this
+// image doesn't exist, fix the reference" apart from "something went wrong
+// scanning a real image, retry".
+func missingImage(ref *secscan.ImageRef, reason string, vnic ifs.IVNic) bool {
+	ref.ScanStatus = secscan.ScanStatus_SCAN_STATUS_MISSING
+	ref.ScanError = reason
+	if err := l8common.PutEntity(scommon.ImageRefServiceName, scommon.ServiceArea, ref, vnic); err != nil {
+		vnic.Resources().Logger().Error("scanloop: failed to mark ImageRef MISSING ", ref.ImageRefId, ": ", err.Error())
 	}
 	return false
 }

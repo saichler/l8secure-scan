@@ -18,7 +18,7 @@ test.describe('group detail', () => {
     }
   });
 
-  test('trend panel, checkbox selection, and a real scan run reach the dashboard progress bar', async ({ page }) => {
+  test('checkbox selection and a real scan run reach the dashboard progress bar', async ({ page }) => {
     test.setTimeout(150000); // real Trivy scan against a real cluster, not mocked
     const nav = new NavPage(page);
     const popup = new PopupPage(page);
@@ -68,9 +68,6 @@ test.describe('group detail', () => {
     await groupRow.click();
 
     await popup.expectTitle(imageGroupName);
-    // Never scanned yet -- Trend panel shows its empty-state message
-    // (headerHtml: `newest && oldest` both required before showing the table).
-    await expect(popup.body).toContainText('Trend data available once at least one scan completes.');
 
     const refCheckbox = popup.body.locator('.secscan-ref-select');
     await expect(refCheckbox).toBeVisible({ timeout: 10000 });

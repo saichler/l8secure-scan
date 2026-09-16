@@ -18,12 +18,16 @@ window.SecScanGroupDetail_M = (function() {
 
     // ScanStatus enum order matches proto/secscan.proto exactly (same
     // Layer8EnumFactory used by desktop -- only the renderer differs).
+    // Missing (5) uses the same "warning" style as desktop's -- the image
+    // reference itself couldn't be resolved, a different condition than
+    // Failed (scan attempted against a real image but errored).
     const SCAN_STATUS = Layer8EnumFactory.create([
         ['Unspecified', null, ''],
         ['Pending', 'pending', 'mobile-status-pending'],
         ['Scanning', 'scanning', 'mobile-status-active'],
         ['Completed', 'completed', 'mobile-status-active'],
-        ['Failed', 'failed', 'mobile-status-terminated']
+        ['Failed', 'failed', 'mobile-status-terminated'],
+        ['Missing', 'missing', 'mobile-status-warning']
     ]);
     const renderScanStatus = Layer8MRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
 

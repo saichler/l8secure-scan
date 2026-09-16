@@ -39,7 +39,7 @@ window.SecScanVuln = window.SecScanVuln || {};
                 '22;border:1px solid ' + Layer8DUtils.escapeHtml(cat.colorCode || '#888') + ';">' +
                 Layer8DUtils.escapeHtml(cat.name) + '</span>';
         }, { sortKey: false }),
-        ...col.number('imageRefCount', 'Image Refs'),
+        ...col.number('imageRefCount', 'Ref #'),
         ...col.custom('latestBuildDate', 'Newest Build Date', function(item) {
             return item.latestBuildDate ? Layer8DUtils.formatDate(item.latestBuildDate) : 'Resolving…';
         }, { sortKey: 'latestBuildDate' }),

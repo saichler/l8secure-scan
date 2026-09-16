@@ -40,6 +40,41 @@ type TrivyVuln struct {
 // (runTrivyCLI below). Tests reassign it to a fixture function.
 var RunTrivy = runTrivyCLI
 
+// ErrImageNotFound wraps a RunTrivy error when the image itself couldn't be
+// pulled (bad tag/digest, deleted from the registry, repo doesn't exist) --
+// as opposed to Trivy running but failing for some other reason (a real
+// tool crash, a malformed report, an unrelated registry outage). image.go
+// checks errors.Is(err, ErrImageNotFound) to mark the ImageRef MISSING
+// instead of FAILED.
+var ErrImageNotFound = errors.New("image not found")
+
+// imageNotFoundMarkers are substrings Trivy/the underlying registry client
+// emit on stderr when the image reference itself can't be resolved, not
+// when Trivy ran but hit some other error. Verified against real Trivy CLI
+// output (docker.io + registry v2 API error bodies) for a nonexistent
+// repo/tag/digest -- deliberately excludes auth-only failures ("denied",
+// "unauthorized") since those mean the image may well exist, just
+// inaccessible with these credentials, which is a real FAILED, not MISSING.
+var imageNotFoundMarkers = []string{
+	"manifest unknown",
+	"manifest_unknown",
+	"unable to find the specified image",
+	"no such image",
+	"name unknown",
+	"name_unknown",
+	"not found",
+}
+
+func isImageNotFound(stderrText string) bool {
+	lower := strings.ToLower(stderrText)
+	for _, marker := range imageNotFoundMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // runTrivyCLI shells out to `trivy image --format json <target>` and
 // parses its output. tag takes precedence over digest when both/neither
 // are empty is a caller bug (PrepareImageRef always sets at least a tag
@@ -60,7 +95,11 @@ func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("trivy scan failed: %v: %s", err, strings.TrimSpace(stderr.String()))
+		stderrText := strings.TrimSpace(stderr.String())
+		if isImageNotFound(stderrText) {
+			return nil, fmt.Errorf("%w: %s", ErrImageNotFound, stderrText)
+		}
+		return nil, fmt.Errorf("trivy scan failed: %v: %s", err, stderrText)
 	}
 
 	report := &TrivyReport{}

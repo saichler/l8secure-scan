@@ -1,5 +1,5 @@
 {
-    "name": "Vulnerabilities Doctor",
+    "name": "Vulnerabilities View",
     "short_name": "SecScan",
     "description": "Container Image Vulnerability Management",
     "start_url": "./",

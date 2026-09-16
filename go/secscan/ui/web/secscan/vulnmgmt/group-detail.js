@@ -4,8 +4,8 @@
 Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 */
 
-// Image Group Detail popup (PRD §11.3): header with editable Category +
-// Trend panel, an embedded ImageRef table (baseWhereClause-scoped, custom
+// Image Group Detail popup (PRD §11.3): header with editable Category,
+// an embedded ImageRef table (baseWhereClause-scoped, custom
 // checkbox multi-select -- Layer8DTable has no built-in row-selection,
 // verified), and row click into Vulnerability Detail. Composes two
 // independently-real, documented APIs (Layer8DPopup.show + Layer8DTable
@@ -22,13 +22,18 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 window.SecScanGroupDetail = (function() {
     'use strict';
 
-    // ScanStatus enum order matches proto/secscan.proto exactly.
+    // ScanStatus enum order matches proto/secscan.proto exactly. Missing
+    // (5) uses the same "warning" style as ScanJob's Partial -- the image
+    // reference itself couldn't be resolved (bad tag/digest, deleted from
+    // the registry), a different condition than Failed (scan attempted
+    // against a real image but errored).
     const SCAN_STATUS = Layer8EnumFactory.create([
         ['Unspecified', null, ''],
         ['Pending', 'pending', 'layer8d-status-pending'],
         ['Scanning', 'scanning', 'layer8d-status-active'],
         ['Completed', 'completed', 'layer8d-status-active'],
-        ['Failed', 'failed', 'layer8d-status-terminated']
+        ['Failed', 'failed', 'layer8d-status-terminated'],
+        ['Missing', 'missing', 'layer8d-status-warning']
     ]);
     const renderScanStatus = Layer8DRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
 
@@ -78,25 +83,9 @@ window.SecScanGroupDetail = (function() {
     }
 
     function headerHtml(group) {
-        const newest = group.newestCounts || null;
-        const oldest = group.oldestCounts || null;
-        const trendRows = SecScanVuln.SEVERITIES.map(function(sev) {
-            const pct = SecScanVuln.reductionPct(newest, oldest, group.scannedRefCount, sev);
-            const label = sev.charAt(0).toUpperCase() + sev.slice(1);
-            const nv = newest ? (newest[sev] || 0) : '';
-            const ov = oldest ? (oldest[sev] || 0) : '';
-            return '<tr><td>' + label + '</td><td>' + nv + '</td><td>' + ov + '</td><td>' +
-                SecScanVuln.formatReductionPct(pct) + '</td></tr>';
-        }).join('');
-
         return '<div class="secscan-group-detail-header">' +
             '<div class="secscan-group-detail-category">' +
             '<label>Category:</label> <span id="secscan-category-picker-wrap"></span>' +
-            '</div>' +
-            '<div class="secscan-group-detail-trend">' +
-            '<table class="layer8d-table-simple"><thead><tr><th>Severity</th><th>Newest</th><th>Oldest</th><th>Reduction</th></tr></thead>' +
-            '<tbody>' + trendRows + '</tbody></table>' +
-            (newest && oldest ? '' : '<p class="secscan-trend-empty">Trend data available once at least one scan completes.</p>') +
             '</div></div>';
     }
 

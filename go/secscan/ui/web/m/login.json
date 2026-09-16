@@ -1,6 +1,6 @@
 {
     "login": {
-        "appTitle": "Vulnerabilities Doctor",
+        "appTitle": "Vulnerabilities View",
         "appDescription": "Container Image Vulnerability Management",
         "authEndpoint": "/auth",
         "redirectUrl": "/m/app.html",
