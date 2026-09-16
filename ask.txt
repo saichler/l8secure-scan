@@ -1,0 +1,17 @@
+Guide lines and arcitecture are at guide-lines directory.
+Please write a PRD for creating the layer 8 image security scan dashboard for scanning and managing vulnerabilities and images for different customers.
+The dashboard will serve multiple customers, but the ui is will show data only for one customer.
+Th epurpose of this tool is to manage image vulnerabilities and remediate images per customer.
+use trivy as a scanning tool.
+group images by image name, regardless of the repo and the tag.
+in gorup details, the list of image ref will be displayed in a decending order from the latest image build date to the older image build date.
+each image inside the group to be selectable for scanning by trivy. multiple images can be selected.
+once scanned, each image will have the sum-up of vulnerabilities of Critical,High,Medium & Low. and Destinct count of Critical,High,Medium & Low.
+detail image vulnerabilities will also be available where we can see a list of vulnerabilities and CVE sorted critical to low.
+Each image group can be categorised tag. the management of categories will also be done from the app.
+There should also be an option to produce a csv report. The CSV report will contain the following columns: 
+Name - group name
+Category - the group category
+Vulnerabilities counts - counts of C/H/M/L
+Vulnerabilities Reduction % - percentage reduction counts between the latest and the oldest images in this group.
+The Image Refs in this group sorted decending from the latest to the oldest image.
