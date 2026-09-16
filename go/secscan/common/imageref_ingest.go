@@ -176,7 +176,6 @@ func findOrCreateImageGroup(customerId, imageName string, vnic ifs.IVNic) (strin
 	// custom Before hook sets it, so it must happen inside the generic
 	// POST pipeline against our own `group`), so fall back to that rather
 	// than trusting the return value's type.
-	vnic.Resources().Logger().Info("DEBUG findOrCreateImageGroup fallback: created=", fmt.Sprintf("%#v", created), " group.ImageGroupId=", group.ImageGroupId)
 	if group.ImageGroupId != "" {
 		return group.ImageGroupId, nil
 	}
