@@ -1,6 +1,7 @@
 import { test, expect } from '../../fixtures/test';
 import { NavPage } from '../../pages/nav.page';
 import { PopupPage } from '../../pages/popup.page';
+import { TablePage } from '../../pages/table.page';
 import { deleteImageGroupByName } from '../../fixtures/cleanup';
 
 // Container id per AddingModule convention (module 'images', service 'groups').
@@ -53,6 +54,12 @@ test.describe('add images (bulk ingestion)', () => {
     await popup.expectClosed();
 
     await nav.goToSection('images');
-    await expect(page.locator(GROUPS_CONTAINER).locator('tbody tr').filter({ hasText: imageGroupName })).toBeVisible({ timeout: 10000 });
+    // Real ImageGroup count grows over time (this project's own images,
+    // other seed runs) -- a freshly created group isn't guaranteed to land
+    // on page 1 of the table's real pagination, so filter for it rather
+    // than relying on default page-1 visibility.
+    const table = new TablePage(page, GROUPS_CONTAINER);
+    await table.filterBy('imageName', imageGroupName);
+    await table.waitForRow(imageGroupName);
   });
 });

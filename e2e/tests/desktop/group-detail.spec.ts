@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { NavPage } from '../../pages/nav.page';
 import { PopupPage } from '../../pages/popup.page';
+import { TablePage } from '../../pages/table.page';
 import { LoginPage } from '../../pages/login.page';
 import { OPSADMIN_USER, OPSADMIN_PASS } from '../../fixtures/env';
 import { deleteImageGroupByName } from '../../fixtures/cleanup';
@@ -55,8 +56,13 @@ test.describe('group detail', () => {
     await popup.expectClosed();
 
     // Open Group Detail via the real row click (row-click override wired
-    // in secscan-init.js: ImageGroup -> SecScanGroupDetail.open).
+    // in secscan-init.js: ImageGroup -> SecScanGroupDetail.open). Filter
+    // first -- the real ImageGroup count grows over time (this project's
+    // own images, other seed runs), so a freshly created group isn't
+    // guaranteed to land on page 1 of the table's real pagination.
     await nav.goToSection('images');
+    const table = new TablePage(page, GROUPS_CONTAINER);
+    await table.filterBy('imageName', imageGroupName);
     const groupRow = page.locator(GROUPS_CONTAINER).locator('tbody tr').filter({ hasText: imageGroupName });
     await expect(groupRow).toBeVisible({ timeout: 10000 });
     await groupRow.click();
