@@ -110,6 +110,24 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     cursor: pointer;
 }
 
+.secscan-scan-failure-table th:nth-child(3),
+.secscan-scan-failure-table td:nth-child(3) {
+    width: 55%;
+}
+
+/* scanError often carries a full raw Trivy CLI stderr dump (multi-line,
+   sometimes several KB) -- scrollable within its own cell instead of
+   either truncating real diagnostic detail or blowing up the popup's
+   height to fit the longest reason in the report. */
+.secscan-scan-failure-reason {
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: monospace;
+    font-size: 12px;
+}
+
 /* Each top-level nav section (Images, Categories, Scan History,
    Customers) has exactly one module with exactly one service -- there is
    nothing to switch between. Layer8SectionGenerator always renders the

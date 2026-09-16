@@ -283,6 +283,45 @@ window.SecScanDashboardKpis = (function() {
         };
     }
 
+    // --- Scan Failure Report (shown once a job with failedImages > 0 is done) ----
+    // job.failedImages only carries an aggregate count (proto ScanJob has no
+    // per-image result list) -- scanloop.go's scanOneImage already persists
+    // the real reason on each individual ImageRef (scanStatus FAILED/MISSING
+    // + scanError), so the report is built by re-fetching those specific
+    // ImageRefs, not from the job record itself. Two plain equality queries
+    // (scanStatus=4, scanStatus=5) instead of one OR/IN query -- this
+    // project's L8QL only supports simple AND-chained equality conditions
+    // (verified: a LIKE query was rejected outright, "Cannot find
+    // comparator operation"), so this reuses the same proven-safe shape as
+    // fetchPendingImageRefs above instead of guessing at OR/IN support.
+    function fetchStatusRefs(customerId, status) {
+        const q = encodeURIComponent(JSON.stringify({
+            text: "select * from ImageRef where customerId='" + customerId + "' and scanStatus=" + status + " limit 999 page 0"
+        }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImageRef?body=' + q))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) { return (data && data.list) || []; });
+    }
+
+    function showScanFailureReport(refs) {
+        if (!refs || refs.length === 0) return;
+        const SCAN_STATUS_MISSING = 5;
+        const rows = refs.map(function(r) {
+            const label = (r.repoName || '') + (r.tag ? ':' + r.tag : '');
+            const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing' : 'Failed';
+            return '<tr><td>' + Layer8DUtils.escapeHtml(label) + '</td><td>' + statusText + '</td><td>' +
+                '<div class="secscan-scan-failure-reason">' + Layer8DUtils.escapeHtml(r.scanError || '(no reason recorded)') + '</div></td></tr>';
+        }).join('');
+        Layer8DPopup.show({
+            title: 'Scan Failures (' + refs.length + ')',
+            content: '<table class="layer8d-table-simple secscan-scan-failure-table">' +
+                '<thead><tr><th>Image</th><th>Status</th><th>Reason</th></tr></thead>' +
+                '<tbody>' + rows + '</tbody></table>',
+            size: 'xlarge',
+            showFooter: false
+        });
+    }
+
     function attachProgressBar(scanJobId) {
         activeJobId = scanJobId;
         const wrap = document.getElementById('secscan-scan-progress');
@@ -293,7 +332,7 @@ window.SecScanDashboardKpis = (function() {
             primaryKey: scanJobId,
             fetchCurrent: function() { return fetchScanJob(scanJobId); },
             getProgress: scanJobProgress,
-            onDone: function() {
+            onDone: function(job) {
                 activeJobId = null;
                 progressBarHandle = null;
                 SecScanImageSelection.clear();
@@ -301,6 +340,21 @@ window.SecScanDashboardKpis = (function() {
                 updateScanButton(SecScanImageSelection.count());
                 loadStrip();
                 setTimeout(function() { wrap.hidden = true; }, 3000);
+
+                if (job && job.failedImages > 0) {
+                    const customerId = SecScan.getCurrentCustomerId();
+                    const jobRefIds = new Set(job.imageRefIds || []);
+                    if (customerId) {
+                        Promise.all([fetchStatusRefs(customerId, 4), fetchStatusRefs(customerId, 5)])
+                            .then(function(results) {
+                                const failed = results[0].concat(results[1]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
+                                showScanFailureReport(failed);
+                            })
+                            .catch(function(err) {
+                                console.error('Scan Failure Report: failed to load details', err);
+                            });
+                    }
+                }
             }
         });
     }
@@ -331,7 +385,13 @@ window.SecScanDashboardKpis = (function() {
             if (!job || !job.scanJobId) {
                 throw new Error('No scan job returned');
             }
-            Layer8DNotification.success('Scanning ' + ids.length + ' image(s)');
+            // .info, not .success -- this fires the instant the ScanJob is
+            // CREATED, before a single image has actually been scanned.
+            // Layer8DNotification.success renders a green "Success" title,
+            // which read as "the scan already succeeded" (real user
+            // confusion, reported live) even though the body text said
+            // "Scanning", not "Scanned".
+            Layer8DNotification.info('Started scanning ' + ids.length + ' image(s)');
             updateScanButton(SecScanImageSelection.count());
             attachProgressBar(job.scanJobId);
         }).catch(function(err) {

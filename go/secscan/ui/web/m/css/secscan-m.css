@@ -213,11 +213,39 @@ html, body {
     text-align: left;
     border-bottom: 1px solid var(--layer8d-border, #e2e8f0);
 }
-.secscan-m-group-toolbar { margin-bottom: 8px; }
+.secscan-m-group-toolbar { margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.secscan-scan-all-pending-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--layer8d-text-dark, #1a202c);
+    cursor: pointer;
+    user-select: none;
+}
+.secscan-scan-all-pending-label input[type="checkbox"] { cursor: pointer; }
 /* Bar/fill/label styling lives in the generic
    l8ui/shared/layer8d-progress-bar.css -- this is just the outer spacing. */
 .secscan-m-scan-progress { margin-bottom: 12px; }
 .secscan-m-ref-select-label { display: flex; align-items: center; gap: 6px; }
+
+.secscan-m-scan-failure-item {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--layer8d-border, #e2e8f0);
+}
+.secscan-m-scan-failure-item:last-child { border-bottom: none; }
+.secscan-m-scan-failure-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+/* scanError often carries a full raw Trivy CLI stderr dump -- scrollable
+   within its own block instead of truncating real diagnostic detail. */
+.secscan-m-scan-failure-reason {
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--layer8d-text-medium, #718096);
+}
 
 /* Project-specific: Image Groups list (customInit view) */
 .secscan-m-kpi-strip.secscan-m-kpi-loading {

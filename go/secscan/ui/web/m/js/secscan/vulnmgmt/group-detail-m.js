@@ -8,7 +8,10 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 // group-detail.js): header with editable Category, an
 // embedded ImageRef Layer8MTable (baseWhereClause-scoped, custom checkbox
 // multi-select -- Layer8MTable/Layer8MEditTable have no native
-// row-selection either, verified), a "Scan Selected" toolbar action, and
+// row-selection either, verified), a "Scan Selected" toolbar action, a
+// "Scan all pending images" checkbox (scoped to this group only -- mobile
+// has no cross-page Dashboard selection/scan button like desktop's, so
+// scanning only ever happens from inside one group's own popup here), and
 // card-tap into Vulnerability Detail. Composes Layer8MPopup.show +
 // Layer8MTable with baseWhereClause -- no real ecosystem precedent for this
 // exact combination exists on mobile either (same gap already found on
@@ -33,9 +36,17 @@ window.SecScanGroupDetail_M = (function() {
 
     let selectedIds = new Set();
     let refTable = null;
+    let currentGroupId = null;
+    // Mirrors desktop dashboard-page.js's scanAllPendingIds: remembers
+    // exactly which ids the "Scan all pending" checkbox itself added, so
+    // unchecking it removes only those -- not any refs the user separately
+    // tapped by hand in this same table.
+    let scanAllPendingIds = null;
 
     function open(imageGroupId) {
         selectedIds = new Set();
+        currentGroupId = imageGroupId;
+        scanAllPendingIds = null;
 
         fetchGroup(imageGroupId).then(function(group) {
             if (!group) {
@@ -58,6 +69,9 @@ window.SecScanGroupDetail_M = (function() {
     function render(group) {
         const html = headerHtml(group) +
             '<div class="secscan-m-group-toolbar">' +
+            '<label class="secscan-scan-all-pending-label">' +
+            '<input type="checkbox" id="secscan-m-scan-all-pending-checkbox"> Scan all pending images' +
+            '</label>' +
             '<button class="mobile-popup-btn mobile-popup-btn-save" id="secscan-m-scan-selected-btn" disabled>Scan Selected</button>' +
             '</div>' +
             // Empty on purpose -- Layer8DProgressBar.attach() populates this
@@ -74,6 +88,7 @@ window.SecScanGroupDetail_M = (function() {
             onShow: function(popup) {
                 attachCategoryPicker(popup.body, group);
                 attachScanSelected(popup.body, group);
+                attachScanAllPending(popup.body, group);
                 renderRefTable(popup.body, group);
             }
         });
@@ -137,11 +152,53 @@ window.SecScanGroupDetail_M = (function() {
         if (btn) btn.disabled = selectedIds.size === 0;
     }
 
+    // Scoped to THIS group only (desktop's Dashboard equivalent scans
+    // across every group for the customer -- mobile has no cross-page
+    // selection/Dashboard scan button at all, scanning only ever happens
+    // from inside a specific group's own popup here, so "all pending"
+    // means "all pending in this group").
+    function fetchPendingImageRefs(groupId) {
+        const query = "select * from ImageRef where imageGroupId='" + groupId + "' and scanStatus=1 limit 999 page 0";
+        return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ImageRef?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
+            .then(function(data) { return (data && data.list) || []; });
+    }
+
+    function attachScanAllPending(body, group) {
+        const checkbox = body.querySelector('#secscan-m-scan-all-pending-checkbox');
+        if (!checkbox) return;
+        checkbox.addEventListener('change', function() {
+            if (checkbox.checked) {
+                checkbox.disabled = true;
+                fetchPendingImageRefs(group.imageGroupId).then(function(refs) {
+                    scanAllPendingIds = refs.map(function(r) { return r.imageRefId; });
+                    refs.forEach(function(r) { selectedIds.add(r.imageRefId); });
+                    if (refs.length === 0) {
+                        Layer8MUtils.showSuccess('No pending images to scan');
+                    }
+                    updateScanButton(body);
+                    if (refTable) refTable.refresh();
+                }).catch(function(err) {
+                    console.error('Scan All Pending (mobile): failed to load pending images', err);
+                    Layer8MUtils.showError('Failed to load pending images');
+                    checkbox.checked = false;
+                }).finally(function() {
+                    checkbox.disabled = false;
+                });
+            } else if (scanAllPendingIds) {
+                scanAllPendingIds.forEach(function(id) { selectedIds.delete(id); });
+                scanAllPendingIds = null;
+                updateScanButton(body);
+                if (refTable) refTable.refresh();
+            }
+        });
+    }
+
     function renderRefTable(body, group) {
         const columns = [
             Object.assign({}, Layer8ColumnFactory.custom('repoName', 'Repo', function(item) {
+                const checked = selectedIds.has(item.imageRefId) ? ' checked' : '';
                 return '<label class="secscan-m-ref-select-label" onclick="event.stopPropagation()">' +
-                    '<input type="checkbox" class="secscan-m-ref-select" data-id="' + item.imageRefId + '"> ' +
+                    '<input type="checkbox" class="secscan-m-ref-select" data-id="' + item.imageRefId + '"' + checked + '> ' +
                     Layer8MUtils.escapeHtml(item.repoName) + ':' + Layer8MUtils.escapeHtml(item.tag || '') +
                     '</label>';
             })[0], { primary: true }),
@@ -227,6 +284,46 @@ window.SecScanGroupDetail_M = (function() {
             .then(function(data) { return (data && data.list && data.list[0]) || null; });
     }
 
+    // --- Scan Failure Report (shown once a job with failedImages > 0 is done) ----
+    // Same approach as desktop's dashboard-page.js: ScanJob only carries an
+    // aggregate failedImages count, so the report is built by re-fetching
+    // the actual ImageRefs (scanStatus FAILED/MISSING + scanError, already
+    // persisted per-image by scanloop.go), scoped to this group and
+    // filtered to the ids this specific job scanned. Two plain equality
+    // queries (scanStatus=4, scanStatus=5), not one OR/IN query -- this
+    // project's L8QL only supports simple AND-chained equality (verified
+    // elsewhere: a LIKE query was rejected outright).
+    function fetchGroupStatusRefs(groupId, status) {
+        const query = "select * from ImageRef where imageGroupId='" + groupId + "' and scanStatus=" + status + " limit 999 page 0";
+        return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ImageRef?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
+            .then(function(data) { return (data && data.list) || []; });
+    }
+
+    function showScanFailureReport(groupId, jobRefIds) {
+        Promise.all([fetchGroupStatusRefs(groupId, 4), fetchGroupStatusRefs(groupId, 5)])
+            .then(function(results) {
+                const SCAN_STATUS_MISSING = 5;
+                const refs = results[0].concat(results[1]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
+                if (refs.length === 0) return;
+                const items = refs.map(function(r) {
+                    const label = (r.repoName || '') + (r.tag ? ':' + r.tag : '');
+                    const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing' : 'Failed';
+                    return '<div class="secscan-m-scan-failure-item">' +
+                        '<div class="secscan-m-scan-failure-title">' + Layer8MUtils.escapeHtml(label) + ' &mdash; ' + statusText + '</div>' +
+                        '<div class="secscan-m-scan-failure-reason">' + Layer8MUtils.escapeHtml(r.scanError || '(no reason recorded)') + '</div>' +
+                        '</div>';
+                }).join('');
+                Layer8MPopup.show({
+                    title: 'Scan Failures (' + refs.length + ')',
+                    content: items,
+                    size: 'large',
+                    showFooter: false
+                });
+            }).catch(function(err) {
+                console.error('Scan Failure Report (mobile): failed to load details', err);
+            });
+    }
+
     function attachScanSelected(body, group) {
         const btn = body.querySelector('#secscan-m-scan-selected-btn');
         if (!btn) return;
@@ -239,12 +336,31 @@ window.SecScanGroupDetail_M = (function() {
             }
             const ids = Array.from(selectedIds);
             Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ScanJob'), { customerId: customerId, imageRefIds: ids })
-                .then(function(job) {
+                .then(function(data) {
+                    // POST /60/ScanJob's response body is the same generic
+                    // {list, metadata} wrapper every query response uses
+                    // (verified live, matching desktop's dashboard-page.js
+                    // comment on the same endpoint) -- Layer8MAuth.post()
+                    // returns response.json() completely unwrapped, so this
+                    // was checking a bare-object shape the response never
+                    // actually has. Real, pre-existing bug: mobile's Scan
+                    // Selected always fell into the catch block below with
+                    // "No scan job returned" and never actually started a
+                    // scan, caught only by running this against a live
+                    // server end to end.
+                    const job = data && data.list && data.list[0];
                     if (!job || !job.scanJobId) {
                         throw new Error('No scan job returned');
                     }
-                    Layer8MUtils.showSuccess('Scanning ' + ids.length + ' image(s)');
+                    // .showInfo, not .showSuccess -- this fires the instant
+                    // the ScanJob is CREATED, before a single image has
+                    // actually been scanned (real user confusion, reported
+                    // live, on the desktop equivalent of this same message).
+                    Layer8MUtils.showInfo('Started scanning ' + ids.length + ' image(s)');
                     selectedIds = new Set();
+                    scanAllPendingIds = null;
+                    const scanAllCheckbox = body.querySelector('#secscan-m-scan-all-pending-checkbox');
+                    if (scanAllCheckbox) scanAllCheckbox.checked = false;
                     updateScanButton(body);
                     const wrap = body.querySelector('#secscan-m-scan-progress');
                     if (wrap && typeof Layer8DProgressBar !== 'undefined') {
@@ -253,9 +369,12 @@ window.SecScanGroupDetail_M = (function() {
                             primaryKey: job.scanJobId,
                             fetchCurrent: function() { return fetchScanJob(job.scanJobId); },
                             getProgress: scanJobProgress,
-                            onDone: function() {
+                            onDone: function(finishedJob) {
                                 if (refTable) refTable.refresh();
                                 setTimeout(function() { wrap.hidden = true; }, 3000);
+                                if (finishedJob && finishedJob.failedImages > 0) {
+                                    showScanFailureReport(group.imageGroupId, new Set(finishedJob.imageRefIds || []));
+                                }
                             }
                         });
                     }
