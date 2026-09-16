@@ -186,12 +186,6 @@ func seedImageRefs(client *Client, s customerSeed) error {
 // customer-role security user (both opsadmin-only actions), the client
 // re-authenticates AS that new user for everything customer-scoped.
 func RunSeed(client *Client) error {
-	// Save the opsadmin token so it's restored before returning -- callers
-	// (e.g. go/tests' TestAllServices) keep using the same *Client
-	// afterward and expect it to still be opsadmin, not the last seeded
-	// customer user.
-	opsadminToken := client.token
-
 	for _, s := range customerSeeds {
 		fmt.Printf("Seeding Customer %q...\n", s.customerID)
 		if err := seedCustomer(client, s); err != nil {
@@ -223,7 +217,18 @@ func RunSeed(client *Client) error {
 			return err
 		}
 
-		client.token = opsadminToken
+		// Re-authenticate as opsadmin fresh, not by restoring the token
+		// saved before this loop started -- verified against a real
+		// server: the server invalidates an EARLIER token the instant any
+		// OTHER user authenticates, even though that token hasn't expired
+		// (a fresh opsadmin login works immediately after a customer-user
+		// login; restoring the old opsadmin token from before that login
+		// gets "access denied" every time). Both of RunSeed's callers
+		// (mocks/main.go, TestAllService_test.go) already authenticate as
+		// this exact opsadmin/opsadmin account before calling RunSeed.
+		if err := client.Authenticate("opsadmin", "opsadmin"); err != nil {
+			return fmt.Errorf("re-authenticate as opsadmin: %w", err)
+		}
 	}
 
 	return nil
