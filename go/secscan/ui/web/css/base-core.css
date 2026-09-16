@@ -267,7 +267,7 @@ body {
 .logout-btn {
     padding: 8px 20px;
     background: linear-gradient(135deg, var(--layer8d-primary) 0%, var(--layer8d-primary-dark) 100%);
-    color: white;
+    color: var(--layer8d-on-primary, white);
     border: none;
     border-radius: 8px;
     cursor: pointer;

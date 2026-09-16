@@ -138,7 +138,7 @@ html, body {
     height: 32px;
     border-radius: 50%;
     background: var(--layer8d-primary, #0ea5e9);
-    color: #fff;
+    color: var(--layer8d-on-primary, #fff);
     display: flex;
     align-items: center;
     justify-content: center;
