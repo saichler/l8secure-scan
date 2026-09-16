@@ -1422,6 +1422,30 @@ go/<project>/ui/web/
 
 All portals served by single `go/<project>/ui/main.go`. Type registrations for all portals go in that single `main.go`. Two web servers with `hostNetwork: true` on same node bind same port and crash.
 
+## PostImplementationE2ETesting
+
+After the initial implementation phase (backend + UI wired, `go/tests/` green), every project gets its own follow-up phase that drives a real browser against a real, live KIND-deployed cluster. `go/tests/` proves the API contract; it cannot catch what only rendering, CSS, and real framework wiring can break — confirmed repeatedly on one project alone: a hardcoded `color: white` button invisible against a theme's light primary, a shared factory silently never resolving `service.alternateViews` (a field name mismatch nothing else could have caught), an L8QL aggregate that's only correct on `page 0`, a dead `onClick` handler in a commonly-reached-for column helper, a stale chart instance surviving a section re-render. None of these are backend bugs; all of them shipped invisible to `go/tests/` and were only found by actually loading the page.
+
+### Infrastructure: a real KIND cluster, not mocks
+`k8s/kind-start.sh`/`kind-stop.sh` (see `K8sRules`) stand up a real cluster running the project's actual images. Iterating on a fix is: rebuild the image, `kind load docker-image <img>:latest --name <cluster>`, `kubectl delete pod -n <ns> <pod>` (force a fresh pull of the loaded image), `kubectl wait --for=condition=Ready pod/<pod> --timeout=90s`, then rerun the suite. A full `kind-stop.sh && kind-start.sh` gives a clean-data baseline when needed, but note KIND assigns the worker node a fresh IP on every recreate — point the suite at `localhost:<port>` (the stable host port mapping) or re-derive the IP, never hardcode it permanently.
+
+### Suite layout: `e2e/` at project root
+Sibling to `go/`, `k8s/`, `plans/` — a separate language/runtime (Node/TypeScript/Playwright) driving the real deployed app (`app.html` desktop + `m/app.html` mobile), not a `_test.go` file and not exempt from `TestLocationAndApproach`'s spirit, just a different location for a different kind of test. Structure: `fixtures/` (auth session capture + reuse, since a bearer-token-in-sessionStorage app isn't covered by Playwright's own `storageState`; env config; API-backed cleanup helpers), `pages/` (page-object layer — login, nav, table, popup — reused across every spec), `tests/desktop/` and `tests/mobile/` (mobile means the real mobile bundle at its own URL, never a resized desktop viewport).
+
+### Hygiene rules learned the hard way
+- **Clean up what you create.** Every spec that creates real data (via the real UI, against the real API) deletes it in `test.afterEach`, wrapped so a cleanup failure never masks the test's own pass/fail — otherwise the live cluster accumulates orphaned rows across every run, which then breaks *other*, unrelated specs' assumptions (a table default page-1 visibility check breaks once enough rows pile up).
+- **Never assert exact counts against live data.** Assert *presence of the row this test created*, never a total — other runs and real usage change the numbers.
+- **Filter before asserting visibility**, don't rely on default page-1 rendering — real data volume grows over time and a specific row isn't guaranteed to land on the first page.
+- **Debug/scratch spec files get a `zzz-` prefix and are always deleted before moving on** — never leave one committed.
+- **A cached auth session goes stale after a pod/cluster restart** (new process, sometimes a new signing key) — clear it and re-login rather than debugging a mysterious redirect-to-login failure.
+- **Distinguish infra churn from a real bug before fixing anything.** A failure immediately after a pod restart or redeploy is often the cluster still settling (stale connections, DNS, vnic mesh reconnecting) — rerun once before concluding it's a regression. A failure that reproduces consistently in isolation, away from any recent redeploy, is real.
+
+```bash
+# Verify the suite exists and isn't polluting the cluster with debug leftovers
+ls e2e/playwright.config.ts e2e/fixtures/ e2e/pages/ e2e/tests/desktop/ e2e/tests/mobile/
+find e2e/tests -name "zzz-*"  # must return nothing once work is done
+```
+
 ## PrdCompliance
 
 All PRDs must comply with all rules at `../l8book/rules`, follow l8erp architecture, and include a detailed compliance checklist.
