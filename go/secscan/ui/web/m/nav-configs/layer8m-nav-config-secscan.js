@@ -18,6 +18,19 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 
     window.LAYER8M_NAV_CONFIG = window.LAYER8M_NAV_CONFIG || {};
 
+    // opsadmin has no server-side row restriction to its own customer (PRD
+    // §9), so the customer-picker's "focused view" is enforced here, client
+    // side, mirroring desktop's secscan-config.js customerScoped(). A real
+    // customer-role account is already correctly restricted server side
+    // regardless of this. A function (not a plain string) because the
+    // picked customer is only known once the post-login picker resolves,
+    // well after this static config runs at script-load time.
+    function customerScoped() {
+        const cid = (typeof SecScan !== 'undefined' && SecScan.getCurrentCustomerId) ? SecScan.getCurrentCustomerId() : '';
+        return cid ? "customerId='" + cid + "'" : null;
+    }
+    LAYER8M_NAV_CONFIG.customerScoped = customerScoped;
+
     LAYER8M_NAV_CONFIG.modules = [
         { key: 'dashboard', label: 'Dashboard', icon: 'dashboard', hasSubModules: false },
         { key: 'vulnmgmt', label: 'Vulnerability Management', icon: 'security', hasSubModules: true },
@@ -40,6 +53,7 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
                 {
                     key: 'categories', label: 'Categories', icon: 'default',
                     endpoint: '/60/ImgCat', model: 'ImageCategory', idField: 'categoryId',
+                    baseWhereClause: customerScoped,
                     onAdd: function() {
                         SecScanAddCategory_M.open(function() {
                             var t = window._Layer8MNavActiveTable;
@@ -55,6 +69,7 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
                     // 'ScanJob', the protobuf type name, unchanged either way.
                     key: 'scanjobs', label: 'Scan History', icon: 'default',
                     endpoint: '/60/ScanJobs', model: 'ScanJob', idField: 'scanJobId', readOnly: true,
+                    baseWhereClause: customerScoped,
                     onRowClick: function(item) {
                         Layer8MNavCrud.showRecordDetails(
                             { label: 'Scan Job', model: 'ScanJob', endpoint: '/60/ScanJobs', idField: 'scanJobId' },

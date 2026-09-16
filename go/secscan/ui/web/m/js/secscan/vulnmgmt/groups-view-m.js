@@ -42,11 +42,16 @@ window.SecScanGroupsView_M = (function() {
 
     function renderTable() {
         const columns = MobileSecScanVuln.columns.ImageGroup;
+        // 'groups' uses customInit (this file), which bypasses the generic
+        // layer8m-nav-data.js pipeline entirely -- so it needs its own
+        // customer-scoping call, same as categories/scanjobs get via
+        // LAYER8M_NAV_CONFIG's baseWhereClause (layer8m-nav-config-secscan.js).
         new Layer8MTable('secscan-m-groups-table', {
             endpoint: Layer8MConfig.resolveEndpoint('/60/ImgGroup'),
             modelName: 'ImageGroup',
             columns: columns,
             primaryKey: MobileSecScanVuln.primaryKeys.ImageGroup,
+            baseWhereClause: LAYER8M_NAV_CONFIG.customerScoped(),
             sortable: true,
             onCardClick: function(item) {
                 SecScanGroupDetail_M.open(item.imageGroupId);
