@@ -150,12 +150,82 @@ window.SecScanDashboardKpis = (function() {
             });
     }
 
+    // --- Scan All Pending Images checkbox ----------------------------------
+    // Bulk-selects every currently PENDING ImageRef (scanStatus=1) into the
+    // same SecScanImageSelection store Group Detail's per-row checkboxes
+    // use, so the existing Scan Images button/flow scans them with no
+    // separate code path. scanAllPendingIds remembers exactly which ids
+    // THIS checkbox added, so unchecking it removes only those -- not any
+    // ImageRefs the user separately selected by hand in a Group Detail
+    // popup, and not ones another customer-scope session's manual pick
+    // would look like from a fresh 're-select all' query at uncheck time.
+    let scanAllPendingIds = null;
+
+    function fetchPendingImageRefs(customerId) {
+        const q = encodeURIComponent(JSON.stringify({
+            // ScanStatus_PENDING = 1 (bare integer, never a quoted name).
+            // limit is capped at 999 -- 1000 itself is rejected ("Invalid
+            // limit: Limit is limited up to 1000 elements", a real 400
+            // caught only by actually running this against a live server).
+            text: "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 999 page 0"
+        }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImageRef?body=' + q))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) { return (data && data.list) || []; });
+    }
+
+    function onScanAllPendingChange(e) {
+        const checkbox = e.target;
+        if (checkbox.checked) {
+            const customerId = SecScan.getCurrentCustomerId();
+            if (!customerId) {
+                checkbox.checked = false;
+                Layer8DNotification.error('No customer context found for this session');
+                return;
+            }
+            checkbox.disabled = true;
+            fetchPendingImageRefs(customerId).then(function(refs) {
+                scanAllPendingIds = refs.map(function(r) { return r.imageRefId; });
+                refs.forEach(function(r) {
+                    SecScanImageSelection.add(r.imageRefId, (r.repoName || '') + (r.tag ? ':' + r.tag : ''));
+                });
+                if (refs.length === 0) {
+                    Layer8DNotification.success('No pending images to scan');
+                }
+            }).catch(function(err) {
+                console.error('Scan All Pending: failed to load pending images', err);
+                Layer8DNotification.error('Failed to load pending images');
+                checkbox.checked = false;
+            }).finally(function() {
+                checkbox.disabled = activeJobId !== null;
+            });
+        } else if (scanAllPendingIds) {
+            scanAllPendingIds.forEach(function(id) { SecScanImageSelection.remove(id); });
+            scanAllPendingIds = null;
+        }
+    }
+
+    // A scan run clears the whole selection on completion (attachProgressBar's
+    // onDone below) -- those pending ids aren't pending anymore either way,
+    // so the checkbox must reset alongside it or it would stay checked
+    // while claiming to represent a selection that's now empty.
+    function resetScanAllPendingCheckbox() {
+        scanAllPendingIds = null;
+        const checkbox = document.getElementById('secscan-scan-all-pending-checkbox');
+        if (checkbox) checkbox.checked = false;
+    }
+
     function updateScanButton(count) {
         const btn = document.getElementById('secscan-scan-images-btn');
-        if (!btn) return;
+        const checkbox = document.getElementById('secscan-scan-all-pending-checkbox');
         // Disabled while a scan is actively in progress too, not just
         // when nothing is selected (activeJobId set below) -- avoids
         // firing a second overlapping scan job from the same selection.
+        // The checkbox shares that same guard -- selecting more pending
+        // images mid-scan would just get silently dropped by scanSelected's
+        // own activeJobId re-entrancy check below.
+        if (checkbox) checkbox.disabled = activeJobId !== null;
+        if (!btn) return;
         btn.disabled = count === 0 || activeJobId !== null;
         if (activeJobId === null) {
             btn.textContent = count === 0 ? 'Scan Images' : 'Scan Images (' + count + ')';
@@ -227,6 +297,7 @@ window.SecScanDashboardKpis = (function() {
                 activeJobId = null;
                 progressBarHandle = null;
                 SecScanImageSelection.clear();
+                resetScanAllPendingCheckbox();
                 updateScanButton(SecScanImageSelection.count());
                 loadStrip();
                 setTimeout(function() { wrap.hidden = true; }, 3000);
@@ -291,6 +362,9 @@ window.SecScanDashboardKpis = (function() {
             '<div id="secscan-dashboard-kpi-strip" class="secscan-kpi-strip secscan-kpi-loading">Loading…</div>' +
             '<div class="secscan-dashboard-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
+            '<label class="secscan-scan-all-pending-label">' +
+            '<input type="checkbox" id="secscan-scan-all-pending-checkbox"> Scan all pending images' +
+            '</label>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
             '</div>' +
             // Empty on purpose -- Layer8DProgressBar.attach() populates this
@@ -305,6 +379,7 @@ window.SecScanDashboardKpis = (function() {
     window.initializeSecScanDashboard = function() {
         const addBtn = document.getElementById('secscan-add-images-btn');
         const scanBtn = document.getElementById('secscan-scan-images-btn');
+        const scanAllPendingCheckbox = document.getElementById('secscan-scan-all-pending-checkbox');
         if (addBtn && !addBtn.dataset.secscanAttached) {
             addBtn.dataset.secscanAttached = '1';
             addBtn.addEventListener('click', function() {
@@ -314,6 +389,10 @@ window.SecScanDashboardKpis = (function() {
         if (scanBtn && !scanBtn.dataset.secscanAttached) {
             scanBtn.dataset.secscanAttached = '1';
             scanBtn.addEventListener('click', scanSelected);
+        }
+        if (scanAllPendingCheckbox && !scanAllPendingCheckbox.dataset.secscanAttached) {
+            scanAllPendingCheckbox.dataset.secscanAttached = '1';
+            scanAllPendingCheckbox.addEventListener('change', onScanAllPendingChange);
         }
         if (!attached) {
             attached = true;

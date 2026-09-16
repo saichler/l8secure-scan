@@ -34,8 +34,23 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 
 .secscan-dashboard-toolbar {
     display: flex;
+    align-items: center;
     gap: 8px;
     margin-bottom: 12px;
+}
+
+.secscan-scan-all-pending-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--layer8d-text-dark);
+    cursor: pointer;
+    user-select: none;
+}
+
+.secscan-scan-all-pending-label input[type="checkbox"] {
+    cursor: pointer;
 }
 
 .secscan-group-detail-toolbar {
