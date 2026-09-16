@@ -1991,6 +1991,9 @@ Never run `go mod tidy`, `go mod vendor`, `go mod init`, `rm -rf vendor/go.mod/g
 
 ### Rule 3: NEVER Run Git Commands Unless Instructed
 
+### Rule 4: `vendor/` Must NEVER Be Tracked in Git
+`.gitignore` must exclude `go/vendor/` (an uncommented `go/vendor/` line, not `# vendor/`). A real incident: this rule was violated when a project's `.gitignore` had it commented out, committing the entire vendor tree. If you ever find `vendor/` tracked, untrack it immediately (`git rm -r --cached go/vendor`) and fix `.gitignore` before doing anything else — do not wait to be asked.
+
 ### Dependency Location
 Search in `go/vendor/github.com/saichler/<dependency>/...`, not in sibling directories or module cache.
 

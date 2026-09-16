@@ -115,6 +115,40 @@ Zero-dependency vanilla JavaScript/CSS library (no npm, no bundler). Loaded via 
 
 ---
 
+## Live Updates (WebSocket)
+
+Real-time browser updates (live progress bars, auto-refreshing tables) run on one generic mechanism spanning `l8utils`, `l8orm`/`l8services`, `l8web`, and `l8ui` — implementation projects write no per-model notification code themselves.
+
+**Server side.** `l8utils`'s `Cache.Post/Put/Patch/Delete` never send anything themselves — they build and return two notification objects: `n` (cross-node replication delta) and `cn` (the client-facing notification, carrying the full changed record and the set of `AaaId`s that should receive it). A client registers interest by issuing a query through `Cache.Fetch()` with L8QL's `register` keyword; the live query itself (not just its hash) is stored per-`AaaId`, so `cn` is only ever built for `AaaId`s whose registered query actually `Match()`es the changed record — never a blind broadcast. The caller holding the `vnic` (`BaseService`, `OrmService`/`OrmCache`, `DCache`) is what actually sends `cn`, via `vnic.Multicast("websock", 0, action, cn)`. `l8web`'s `WsNotifyService` is the `IServiceHandler` registered under that `"websock"`/area-0 name; it receives the multicast and hands it to `WebSocketManager`, which holds one live connection per authenticated `AaaId` (established at `GET /ws?token=<bearer>`) and pushes `{action, modelType, primaryKey, record}` as JSON to exactly the target connections.
+
+**Client side.** `l8ui/shared/layer8d-websocket.js`'s `Layer8DWebSocket.init()` opens that `/ws` connection once (auto-reconnect with backoff) and dispatches incoming messages by `modelType` (the protobuf type name, not the `ServiceName`) to `subscribe(modelType, callback)` listeners. Two ready-made consumers exist: `Layer8DTable`'s `realtime` option (patches/adds/removes list rows in place) and `layer8d-progress-bar.js`'s `Layer8DProgressBar.attach(container, {modelType, primaryKey, fetchCurrent, getProgress})` (single-record live progress — one initial fetch both registers server-side and renders the starting state, then updates straight from the pushed `record`, no re-fetch per tick). Any new live-updating component follows the same shape: query with `register`, subscribe by `modelType`, filter by `primaryKey` client-side.
+
+**Known limitations** (by design, not yet fixed): only one active registered subscription per `AaaId` per `Cache` instance — two concurrently open registered queries of the same model type under one session overwrite each other; no disconnect-triggered unregister, so a stale registration relies on TTL eviction rather than proactive cleanup on socket close. Full design: `l8utils/plans/generic-websocket-change-notifications.md`. Real end-to-end consumer example (a live scan-progress bar): `l8secure-scan/plans/scanjob-live-progress.md`.
+
+---
+
+## Known Framework Gotchas
+
+Real bugs found and fixed in the shared framework during implementation work, plus non-obvious behavior worth knowing before you hit it yourself. Framework-level only — project-specific issues aren't listed here.
+
+**Go plugin ABI fragility (`l8secure`).** The security provider loads as a compiled `.so` via `plugin.Open()` — the host binary and the plugin must be built with the *exact* same Go toolchain version. An `apk upgrade` in a Dockerfile's final stage (Alpine package drift, e.g. `musl`) can break `dlopen`-based loading even with identical Go/dependency versions, producing `fatal error: runtime: no plugin module data`. Don't add package upgrades to the final stage of a Dockerfile that loads this plugin without verifying the ABI still matches.
+
+**L8QL pagination is 0-indexed, and aggregate counts are page-0-only.** `page 0` is the first page. `Cache.Fetch()`'s real `metadata.keyCount.counts` aggregate is only populated correctly when the query's `page` is `0` — `page 1+` silently falls back to `len(list)` (wrong for KPI/total-count UI). Always query `page 0` when you need the real count, not just the row data.
+
+**Theme switching doesn't survive full-page navigation.** `data-theme` lives on `<html>`, so navigating from one static HTML page to another (e.g. a login page to the app shell) starts fresh — every page must call `Layer8DThemeSwitcher.init()` itself, not just the first one.
+
+**`--layer8d-*` theme tokens: watch for aliases and contrast.** `layer8d-theme.css` maps several legacy short names (`--noc-cyan`, `--primary`, `--accent-color`, etc.) to the real `--layer8d-*` tokens — auditing a component for hardcoded colors by grepping only `var(--layer8d-primary` will miss real bugs reached through one of these aliases. Separately, never hardcode `color: white`/`#fff` on a `var(--layer8d-primary)` background — some themes use a light/near-white primary, which makes white text invisible; use `var(--layer8d-on-primary, white)` instead. And never define project CSS with the SAME generic names l8ui's theme aliases use (`--bg-primary`, `--text-primary`, `--shadow-sm`, etc.) if that stylesheet loads after l8ui's theme files — it silently shadows the real tokens with no error, breaking shared components' theme-responsiveness.
+
+**Chart/view switcher (`Layer8DViewFactory`/`Layer8ViewSwitcher`) now works — previously silently didn't.** `layer8d-module-config-factory.js`'s `service()` helper stores a service's alternate view types (e.g. `['chart']`) as `service.alternateViews`, but `layer8d-service-registry.js`'s `initializeServiceTable()` used to read `service.supportedViews` — a field nothing ever set — so the switcher silently never rendered for any project registering an alternate view this way. Fixed; if older example code references `supportedViews`, it predates the fix.
+
+**`Layer8ColumnFactory.col.link`'s `onClick` is dead code.** It renders a `data-action="click"` anchor, but no such handler exists in `layer8d-table-events.js`. Use `col.custom` with a real `<a href>` for a clickable column instead.
+
+**Reconstructing an `IQuery` from `.Text()` alone drops out-of-band fields.** `AaaId` (and potentially other struct fields) aren't part of the L8QL text itself — any code that re-parses a query from its text representation must re-stamp those fields afterward, or they silently vanish (this bit inter-process vnic transport in `l8srlz`'s `object.NewFromQuery`).
+
+**Cache/query keys must fold in `AaaId`, not just the query text.** Two callers issuing textually-identical L8QL queries under different identities can otherwise collide on one cache entry or subscription slot — `l8ql`'s `Query.Hash()` includes `AAAId()` in its hash for exactly this reason.
+
+---
+
 ## Canonical Implementation Projects
 
 These are complete implementation projects that serve as references for new projects.
