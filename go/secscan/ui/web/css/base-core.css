@@ -51,61 +51,6 @@ limitations under the License.
     font-display: swap;
 }
 
-:root {
-    /* Primary Colors - True NOC Dark Theme */
-    --noc-black: #000000;
-    --noc-dark: #0a0a0a;
-    --noc-charcoal: #121212;
-    --noc-slate: #1a1a1a;
-    --noc-gray: #1e1e1e;
-
-    /* Accent Colors - Critical NOC Status Indicators */
-    --noc-cyan: #1565c0;
-    --noc-green: #00ff41;
-    --noc-amber: #ffb300;
-    --noc-red: #ff1744;
-    --noc-blue: #0d47a1;
-    --noc-indigo: #448aff;
-
-    /* Status Colors - Network Health */
-    --status-operational: #00c853;
-    --status-warning: #ffc107;
-    --status-critical: #ff3d00;
-    --status-offline: #757575;
-    --status-maintenance: #2196f3;
-
-    /* Text Colors - High Contrast for NOC Displays */
-    --text-primary: #ffffff;
-    --text-secondary: #b0bec5;
-    --text-muted: #78909c;
-    --text-dim: #546e7a;
-
-    /* Background Colors - Deep Blacks for NOC Rooms */
-    --bg-primary: #000000;
-    --bg-secondary: #0a0a0a;
-    --bg-tertiary: #121212;
-    --bg-card: #1a1a1a;
-    --bg-elevated: #1e1e1e;
-
-    /* Border Colors - Subtle Separation */
-    --border-subtle: #212121;
-    --border-default: #2a2a2a;
-    --border-emphasis: #333333;
-    --border-glow: rgba(21, 101, 192, 0.3);
-
-    /* Shadows - Minimal for NOC Screens */
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.8);
-    --shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.8);
-    --shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.8);
-    --shadow-glow: 0 0 20px rgba(21, 101, 192, 0.2);
-
-    /* NOC Glows - For Status Indicators */
-    --glow-cyan: 0 0 10px rgba(21, 101, 192, 0.6);
-    --glow-green: 0 0 10px rgba(0, 255, 65, 0.6);
-    --glow-amber: 0 0 10px rgba(255, 179, 0, 0.6);
-    --glow-red: 0 0 10px rgba(255, 23, 68, 0.6);
-}
-
 /* ============================================ */
 /* GLOBAL STYLES */
 /* ============================================ */
