@@ -81,39 +81,38 @@ func testCacheReductionConsistency(t *testing.T, client *mocks.Client, vnic ifs.
 	_, rows := fetchVulnRepCsv(t, client, "local")
 
 	scanned := findCsvRow(t, rows, "img")
-	assertCsvCell(t, scanned, "Newest Critical", "0")
-	assertCsvCell(t, scanned, "Oldest Critical", "1")
-	assertCsvCell(t, scanned, "Reduction % Critical", "100.0")
-	assertCsvCell(t, scanned, "Reduction % High", "100.0")
+	assertCsvSevField(t, scanned, "Newest", "C", "0")
+	assertCsvSevField(t, scanned, "Oldest", "C", "1")
+	assertCsvSevField(t, scanned, "Reduction %", "C", "100.0")
+	assertCsvSevField(t, scanned, "Reduction %", "H", "100.0")
 	// oldest.medium=0 for img-old -> division-by-zero N/A rule.
-	assertCsvCell(t, scanned, "Reduction % Medium", "N/A")
-	assertCsvCell(t, scanned, "Reduction % Low", "N/A")
+	assertCsvSevField(t, scanned, "Reduction %", "M", "N/A")
+	assertCsvSevField(t, scanned, "Reduction %", "L", "N/A")
 
 	// An unscanned group (one of Phase 6's seeded, still-PENDING images)
-	// has scannedRefCount<2 -> every reduction cell and count cell is N/A.
+	// has scannedRefCount<2 -> every reduction field is N/A, and the
+	// consolidated count cells are all-zero (nil counts render as
+	// "T:0 C:0 H:0 M:0 L:0", not blank, now that they're one cell).
 	unscanned := findCsvRow(t, rows, "secscan")
-	assertCsvCell(t, unscanned, "Newest Critical", "")
-	assertCsvCell(t, unscanned, "Reduction % Critical", "N/A")
-	assertCsvCell(t, unscanned, "Reduction % Low", "N/A")
+	assertCsvSevField(t, unscanned, "Newest", "C", "0")
+	assertCsvSevField(t, unscanned, "Reduction %", "C", "N/A")
+	assertCsvSevField(t, unscanned, "Reduction %", "L", "N/A")
 
 	fmt.Println("testCacheReductionConsistency: CSV reduction math matches expected values, N/A edge cases correct")
 }
 
-// CSV report (PRD §19/§10): full 15-column header set, and the "Image
-// Refs" cell's own sort order (newest buildDate first, verified against
-// vulnrep's real imageRefsCell -- sort.Slice on BuildDate descending).
+// CSV report (PRD §19/§10): the consolidated 6-column header set (one
+// column per severity-count group instead of one per severity, matching
+// the Images table's own Vulnerabilities column format -- explicit
+// request), and the "Image Refs" cell's own sort order (newest buildDate
+// first, verified against vulnrep's real imageRefsCell -- sort.Slice on
+// BuildDate descending).
 func testCsvReport(t *testing.T, client *mocks.Client, vnic ifs.IVNic) {
 	header, rows := fetchVulnRepCsv(t, client, "local")
 
-	wantHeaders := []string{
-		"Name", "Category",
-		"Newest Critical", "Newest High", "Newest Medium", "Newest Low",
-		"Oldest Critical", "Oldest High", "Oldest Medium", "Oldest Low",
-		"Reduction % Critical", "Reduction % High", "Reduction % Medium", "Reduction % Low",
-		"Image Refs",
-	}
-	if len(header) != 15 {
-		t.Fatalf("expected 15 CSV columns, got %d: %v", len(header), header)
+	wantHeaders := []string{"Name", "Category", "Newest", "Oldest", "Reduction %", "Image Refs"}
+	if len(header) != 6 {
+		t.Fatalf("expected 6 CSV columns, got %d: %v", len(header), header)
 	}
 	for i, want := range wantHeaders {
 		if header[i] != want {
@@ -133,7 +132,7 @@ func testCsvReport(t *testing.T, client *mocks.Client, vnic ifs.IVNic) {
 		t.Fatalf("expected Image Refs cell sorted newest-buildDate-first (new, mid, old), got %q", refsCell)
 	}
 
-	fmt.Println("testCsvReport: 15-column header set and Image Refs sort order both correct")
+	fmt.Println("testCsvReport: 6-column consolidated header set and Image Refs sort order both correct")
 }
 
 func createCustomer(t *testing.T, vnic ifs.IVNic, customerId string) {
@@ -190,15 +189,24 @@ func findCsvRow(t *testing.T, rows [][]string, name string) []string {
 	return nil
 }
 
-func assertCsvCell(t *testing.T, row []string, colName, want string) {
+// assertCsvSevField reads one consolidated cell ("Newest", "Oldest", or
+// "Reduction %" -- each "T:<total> C:<crit> H:<high> M:<med> L:<low>") and
+// asserts the value tagged with the given single-letter severity prefix
+// ("T", "C", "H", "M", or "L").
+func assertCsvSevField(t *testing.T, row []string, colName, letter, want string) {
 	idx := map[string]int{
-		"Name": 0, "Category": 1,
-		"Newest Critical": 2, "Newest High": 3, "Newest Medium": 4, "Newest Low": 5,
-		"Oldest Critical": 6, "Oldest High": 7, "Oldest Medium": 8, "Oldest Low": 9,
-		"Reduction % Critical": 10, "Reduction % High": 11, "Reduction % Medium": 12, "Reduction % Low": 13,
-		"Image Refs": 14,
+		"Name": 0, "Category": 1, "Newest": 2, "Oldest": 3, "Reduction %": 4, "Image Refs": 5,
 	}[colName]
-	if row[idx] != want {
-		t.Fatalf("expected column %q to be %q, got %q (row=%v)", colName, want, row[idx], row)
+	cell := row[idx]
+	prefix := letter + ":"
+	for _, field := range strings.Fields(cell) {
+		if strings.HasPrefix(field, prefix) {
+			got := strings.TrimPrefix(field, prefix)
+			if got != want {
+				t.Fatalf("expected %s %s to be %q, got %q (cell=%q row=%v)", colName, letter, want, got, cell, row)
+			}
+			return
+		}
 	}
+	t.Fatalf("no %q field found in %s cell %q (row=%v)", prefix, colName, cell, row)
 }

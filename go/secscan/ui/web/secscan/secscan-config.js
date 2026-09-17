@@ -47,6 +47,11 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     // unchanged either way.
     const scanjobsService = svc('scanjobs', 'Scan History', 'icon-history', '/60/ScanJobs', 'ScanJob');
     scanjobsService.baseWhereClause = customerScoped;
+    // Latest scans first -- requestedAt (not completedAt) since it's
+    // always set at job creation, while completedAt stays 0 for any
+    // still-running job, which would otherwise sort every in-progress
+    // scan to the bottom regardless of how recently it started.
+    scanjobsService.defaultSort = { column: 'requestedAt', direction: 'desc' };
 
     Layer8ModuleConfigFactory.create({
         namespace: 'SecScan',

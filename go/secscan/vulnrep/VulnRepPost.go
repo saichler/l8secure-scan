@@ -15,15 +15,16 @@ import (
 	"github.com/saichler/l8types/go/types/l8api"
 )
 
+// Consolidated: one column per severity-count group ("T:<total> C:<critical>
+// H:<high> M:<medium> L:<low>", matching the Images table's own
+// Vulnerabilities column format exactly) instead of one column per
+// severity -- explicit request, applied uniformly to every such group in
+// this report, not just Newest.
 var headers = []string{
-	"Name", "Category",
-	"Newest Critical", "Newest High", "Newest Medium", "Newest Low",
-	"Oldest Critical", "Oldest High", "Oldest Medium", "Oldest Low",
-	"Reduction % Critical", "Reduction % High", "Reduction % Medium", "Reduction % Low",
-	"Image Refs",
+	"Name", "Category", "Newest", "Oldest", "Reduction %", "Image Refs",
 }
 
-// Post generates the 15-column cross-group CSV report (PRD §10), one row
+// Post generates the consolidated 6-column cross-group CSV report (PRD §10), one row
 // per ImageGroup matching the request's customerId -- see the package doc
 // in VulnRep.go for why customerId must be explicit rather than relying on
 // automatic row-scoping.
@@ -82,12 +83,9 @@ func buildRow(g *secscan.ImageGroup, vnic ifs.IVNic) ([]string, error) {
 	return []string{
 		g.ImageName,
 		category,
-		countCell(g.NewestCounts, critical), countCell(g.NewestCounts, high), countCell(g.NewestCounts, medium), countCell(g.NewestCounts, low),
-		countCell(g.OldestCounts, critical), countCell(g.OldestCounts, high), countCell(g.OldestCounts, medium), countCell(g.OldestCounts, low),
-		reductionPct(g.NewestCounts, g.OldestCounts, g.ScannedRefCount, critical),
-		reductionPct(g.NewestCounts, g.OldestCounts, g.ScannedRefCount, high),
-		reductionPct(g.NewestCounts, g.OldestCounts, g.ScannedRefCount, medium),
-		reductionPct(g.NewestCounts, g.OldestCounts, g.ScannedRefCount, low),
+		vulnCountCell(g.NewestCounts),
+		vulnCountCell(g.OldestCounts),
+		reductionPctCell(g.NewestCounts, g.OldestCounts, g.ScannedRefCount),
 		refsCell,
 	}, nil
 }
@@ -136,12 +134,34 @@ func critical(c *secscan.VulnerabilityCounts) int32 { return c.Critical }
 func high(c *secscan.VulnerabilityCounts) int32     { return c.High }
 func medium(c *secscan.VulnerabilityCounts) int32   { return c.Medium }
 func low(c *secscan.VulnerabilityCounts) int32      { return c.Low }
-
-func countCell(c *secscan.VulnerabilityCounts, sev func(*secscan.VulnerabilityCounts) int32) string {
+func total(c *secscan.VulnerabilityCounts) int32 {
 	if c == nil {
-		return ""
+		return 0
 	}
-	return strconv.Itoa(int(sev(c)))
+	return c.Critical + c.High + c.Medium + c.Low
+}
+
+// vulnCountCell matches the Images table's own Vulnerabilities column
+// format exactly ("T:<total> C:<critical> H:<high> M:<medium> L:<low>").
+func vulnCountCell(c *secscan.VulnerabilityCounts) string {
+	if c == nil {
+		c = &secscan.VulnerabilityCounts{}
+	}
+	return fmt.Sprintf("T:%d C:%d H:%d M:%d L:%d", total(c), c.Critical, c.High, c.Medium, c.Low)
+}
+
+// reductionPctCell mirrors vulnCountCell's T/C/H/M/L shape, but every
+// value is a reductionPct() result (a percentage string, or "N/A") --
+// `total` satisfies the same sev func(*VulnerabilityCounts) int32 shape
+// reductionPct already takes, so the T value is just the same math applied
+// to each side's combined severity count instead of one severity's.
+func reductionPctCell(newest, oldest *secscan.VulnerabilityCounts, scannedRefCount int32) string {
+	return fmt.Sprintf("T:%s C:%s H:%s M:%s L:%s",
+		reductionPct(newest, oldest, scannedRefCount, total),
+		reductionPct(newest, oldest, scannedRefCount, critical),
+		reductionPct(newest, oldest, scannedRefCount, high),
+		reductionPct(newest, oldest, scannedRefCount, medium),
+		reductionPct(newest, oldest, scannedRefCount, low))
 }
 
 // reductionPct applies the canonical N/A rule set (PRD §10): N/A when the

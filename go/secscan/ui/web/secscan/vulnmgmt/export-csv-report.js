@@ -5,7 +5,9 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 */
 
 // "Export CSV Report" (PRD §10/§11.1): POSTs to the bespoke VulnRep action
-// service (15-column cross-group report), distinct from the generic
+// service (consolidated 6-column cross-group report -- Newest/Oldest/
+// Reduction % each a single "T:x C:x H:x M:x L:x" cell, matching the
+// Images table's own Vulnerabilities column format), distinct from the generic
 // per-row Layer8CsvExport button that auto-attaches to the Image Groups
 // table's own pagination bar. Blob-download mechanics mirror
 // l8ui/shared/layer8-csv-export.js's real _download implementation (the

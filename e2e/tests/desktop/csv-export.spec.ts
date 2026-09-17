@@ -18,10 +18,11 @@ test.describe('csv export', () => {
     expect(path).toBeTruthy();
     const fs = await import('fs');
     const content = fs.readFileSync(path!, 'utf-8');
-    // §10's 15-column set, header row.
+    // §10's consolidated 6-column set (Name, Category, Newest, Oldest,
+    // Reduction %, Image Refs -- one column per severity-count group
+    // instead of one per severity, matching the Images table's own
+    // Vulnerabilities column format).
     const header = content.split('\n')[0];
-    expect(header).toContain('Name');
-    expect(header).toContain('Category');
-    expect(header.split(',').length).toBeGreaterThanOrEqual(15);
+    expect(header).toBe('Name,Category,Newest,Oldest,Reduction %,Image Refs');
   });
 });
