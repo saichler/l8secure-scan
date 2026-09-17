@@ -223,7 +223,7 @@ window.SecScanGroupDetail = (function() {
     // against l8common's genericCallback source).
     function deleteImageRef(id, body) {
         if (!confirm('Delete this image reference? This cannot be undone.')) return;
-        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgRefDelete'), {
+        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgRefDel'), {
             method: 'POST',
             body: JSON.stringify({ imageRefId: id })
         }).then(function(resp) {

@@ -25,7 +25,10 @@ const (
 	ScanJobServiceName      = "ScanJob"
 	ImgRefAddServiceName    = "ImgRefAdd"
 	VulnRepServiceName      = "VulnRep"
-	ImgRefDeleteServiceName = "ImgRefDelete"
+	// Must be under 10 characters (SLA service-name limit, a real panic
+	// caught only by actually running this: "SLA Service name
+	// ImgRefDelete must be less than 10 characters long").
+	ImgRefDeleteServiceName = "ImgRefDel"
 )
 
 // PREFIX is the project's REST API prefix (LoginJsonAdaptation).

@@ -263,7 +263,7 @@ window.SecScanGroupDetail_M = (function() {
     // group-detail.js).
     function deleteImageRef(id, label, body) {
         if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
-        Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ImgRefDelete'), { imageRefId: id })
+        Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ImgRefDel'), { imageRefId: id })
             .then(function(resp) {
                 if (!resp) throw new Error('Delete failed');
                 Layer8MUtils.showSuccess('Image reference deleted');
