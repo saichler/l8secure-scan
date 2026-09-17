@@ -70,6 +70,10 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
                     key: 'scanjobs', label: 'Scan History', icon: 'default',
                     endpoint: '/60/ScanJobs', model: 'ScanJob', idField: 'scanJobId', readOnly: true,
                     baseWhereClause: customerScoped,
+                    // Latest scans first -- requestedAt, not completedAt,
+                    // same reasoning as desktop's secscan-config.js
+                    // (completedAt stays 0 for any still-running job).
+                    defaultSort: { column: 'requestedAt', direction: 'desc' },
                     onRowClick: function(item) {
                         Layer8MNavCrud.showRecordDetails(
                             { label: 'Scan Job', model: 'ScanJob', endpoint: '/60/ScanJobs', idField: 'scanJobId' },
