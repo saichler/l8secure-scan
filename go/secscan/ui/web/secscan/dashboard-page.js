@@ -96,7 +96,7 @@ window.SecScanDashboardKpis = (function() {
         const cards = [
             Layer8DWidget.render({ label: 'Images', icon: 'icon-image', iconSvg: KPI_ICONS['icon-image'] }, kpis.totalGroups, {}),
             Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock', iconSvg: KPI_ICONS['icon-clock'] }, kpis.pendingScans, {}),
-            Layer8DWidget.render({ label: 'CVEs (Latest Images)', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, cveTotal, { subtitle: cveSubtitle }),
+            Layer8DWidget.render({ label: 'CVEs (Latest)', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, cveTotal, { subtitle: cveSubtitle }),
             Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question', iconSvg: KPI_ICONS['icon-question'] }, kpis.unscannedGroups, {})
         ];
         return '<div class="secscan-kpi-strip">' + cards.join('') + '</div>';

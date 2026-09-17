@@ -25,7 +25,7 @@ test.describe('dashboard', () => {
     // Never assert exact counts against live/real data (per plans/
     // playwright-e2e-testing.md §3) -- only that each card shows a real,
     // rendered numeric value, not blank/NaN.
-    const labels = ['Images', 'Pending Scans', 'Critical CVEs', 'Groups Not Yet Scanned'];
+    const labels = ['Images', 'Pending Scans', 'CVEs (Latest)', 'Groups Not Yet Scanned'];
     for (const label of labels) {
       const card = widgets.filter({ hasText: label });
       await expect(card).toHaveCount(1);

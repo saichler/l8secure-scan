@@ -34,7 +34,7 @@ window.SecScanGroupsView_M = (function() {
         return '<div class="nav-stats-grid secscan-m-kpi-strip">' +
             statCard(kpis.totalGroups, 'Image Groups') +
             statCard(kpis.pendingScans, 'Pending Scans') +
-            statCard(cveTotal, 'CVEs (Latest Images)', cveSubtitle) +
+            statCard(cveTotal, 'CVEs (Latest)', cveSubtitle) +
             statCard(kpis.unscannedGroups, 'Not Yet Scanned') +
             '</div>';
     }
