@@ -24,19 +24,50 @@ window.SecScanDashboardKpis = (function() {
             .catch(function() { return 0; });
     }
 
+    // ImageRefCve rows exist for EVERY scanned ImageRef ever, including
+    // ones a group has since moved past (a newer, patched build added
+    // later) -- counting them directly meant a remediated image's old
+    // findings never stopped being counted. Each ImageGroup's own
+    // newestCounts is already exactly "the severity counts of this
+    // group's most-recently-built scanned ref" (RecomputeImageGroupCache,
+    // server side), so summing that across groups gives the latest-image-
+    // only, remediation-aware total this card needs -- the same source
+    // the Images table's own Vulnerabilities column and the Top
+    // Vulnerabilities chart already use.
+    function fetchCveStats(customerId) {
+        const q = encodeURIComponent(JSON.stringify({
+            text: "select * from ImageGroup where customerId='" + customerId + "' limit 999 page 0"
+        }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgGroup?body=' + q))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) {
+                const list = (data && data.list) || [];
+                const stats = { critical: 0, high: 0, medium: 0, low: 0 };
+                list.forEach(function(g) {
+                    const c = g.newestCounts;
+                    if (!c) return;
+                    stats.critical += c.critical || 0;
+                    stats.high += c.high || 0;
+                    stats.medium += c.medium || 0;
+                    stats.low += c.low || 0;
+                });
+                return stats;
+            })
+            .catch(function() { return { critical: 0, high: 0, medium: 0, low: 0 }; });
+    }
+
     function loadKpis(customerId) {
         return Promise.all([
             countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' limit 1 page 0"),
             // ScanStatus_PENDING = 1 (bare integer, never a quoted name -- verified L8Query rule)
             countOfEndpoint('/60/ImageRef', "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 1 page 0"),
-            // Severity_CRITICAL = 4
-            countOfEndpoint('/60/ImgRefCve', "select * from ImageRefCve where customerId='" + customerId + "' and severity=4 limit 1 page 0"),
+            fetchCveStats(customerId),
             countOfEndpoint('/60/ImgGroup', "select * from ImageGroup where customerId='" + customerId + "' and scannedRefCount=0 limit 1 page 0")
         ]).then(function(results) {
             return {
                 totalGroups: results[0],
                 pendingScans: results[1],
-                criticalCves: results[2],
+                cveStats: results[2],
                 unscannedGroups: results[3]
             };
         });
@@ -57,10 +88,15 @@ window.SecScanDashboardKpis = (function() {
     };
 
     function renderStrip(kpis) {
+        const cve = kpis.cveStats || { critical: 0, high: 0, medium: 0, low: 0 };
+        const cveTotal = cve.critical + cve.high + cve.medium + cve.low;
+        // Same "C:x H:x M:x L:x" breakdown format used everywhere else in
+        // this app (Images table's Vulnerabilities column, CSV report).
+        const cveSubtitle = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
         const cards = [
             Layer8DWidget.render({ label: 'Images', icon: 'icon-image', iconSvg: KPI_ICONS['icon-image'] }, kpis.totalGroups, {}),
             Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock', iconSvg: KPI_ICONS['icon-clock'] }, kpis.pendingScans, {}),
-            Layer8DWidget.render({ label: 'Critical CVEs', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, kpis.criticalCves, {}),
+            Layer8DWidget.render({ label: 'CVEs (Latest Images)', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, cveTotal, { subtitle: cveSubtitle }),
             Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question', iconSvg: KPI_ICONS['icon-question'] }, kpis.unscannedGroups, {})
         ];
         return '<div class="secscan-kpi-strip">' + cards.join('') + '</div>';

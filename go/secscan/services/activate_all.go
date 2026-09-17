@@ -8,6 +8,7 @@ import (
 	"github.com/saichler/l8secure-scan/go/secscan/imageref"
 	"github.com/saichler/l8secure-scan/go/secscan/imagerefcve"
 	"github.com/saichler/l8secure-scan/go/secscan/imgrefadd"
+	"github.com/saichler/l8secure-scan/go/secscan/imgrefdelete"
 	"github.com/saichler/l8secure-scan/go/secscan/scanjobs"
 	"github.com/saichler/l8secure-scan/go/secscan/vulnrep"
 	"github.com/saichler/l8types/go/ifs"
@@ -30,5 +31,6 @@ func ActivateSecscanServices(creds, dbname string, vnic ifs.IVNic) {
 	scanjobs.Activate(creds, dbname, vnic)
 
 	imgrefadd.Activate(vnic)
+	imgrefdelete.Activate(vnic)
 	vulnrep.Activate(vnic)
 }

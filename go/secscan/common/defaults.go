@@ -22,9 +22,10 @@ const (
 	// secscan-scanner: the Dashboard/mobile "Scan Selected" POST target.
 	// It writes to ScanJobsServiceName as scanning progresses
 	// (plans/scanjob-live-progress.md).
-	ScanJobServiceName   = "ScanJob"
-	ImgRefAddServiceName = "ImgRefAdd"
-	VulnRepServiceName   = "VulnRep"
+	ScanJobServiceName      = "ScanJob"
+	ImgRefAddServiceName    = "ImgRefAdd"
+	VulnRepServiceName      = "VulnRep"
+	ImgRefDeleteServiceName = "ImgRefDelete"
 )
 
 // PREFIX is the project's REST API prefix (LoginJsonAdaptation).

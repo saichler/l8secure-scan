@@ -175,3 +175,9 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 #images-groups-table-container th[data-column="newestCounts"] {
     width: 20%;
 }
+
+/* Ref # is a 1-3 digit number -- explicit request to halve it from its
+   previous equal-split share (measured live: 10.72% of table width). */
+#images-groups-table-container th[data-column="imageRefCount"] {
+    width: 5.36%;
+}

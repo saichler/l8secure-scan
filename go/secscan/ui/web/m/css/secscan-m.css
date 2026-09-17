@@ -228,6 +228,16 @@ html, body {
    l8ui/shared/layer8d-progress-bar.css -- this is just the outer spacing. */
 .secscan-m-scan-progress { margin-bottom: 12px; }
 .secscan-m-ref-select-label { display: flex; align-items: center; gap: 6px; }
+.secscan-m-ref-delete-btn {
+    margin-top: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--layer8d-error, #ef4444);
+    background: transparent;
+    border: 1px solid var(--layer8d-error, #ef4444);
+    border-radius: 4px;
+    cursor: pointer;
+}
 
 .secscan-m-scan-failure-item {
     padding: 8px 0;

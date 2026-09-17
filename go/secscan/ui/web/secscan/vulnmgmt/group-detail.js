@@ -160,7 +160,17 @@ window.SecScanGroupDetail = (function() {
             serverSide: true,
             sortable: true,
             defaultSort: { column: 'buildDate', direction: 'desc' },
-            showActions: false,
+            // showActions:true + a truthy onDelete is what makes
+            // Layer8DTable render the per-row Delete button at all
+            // (layer8d-table-render.js only emits it when onDelete is
+            // set) -- the callback here is otherwise never reached
+            // (Layer8DTable wires it as a plain bubble-phase listener on
+            // the button itself, but the capturing-phase listener below
+            // stops the click before it ever reaches that far; see its
+            // own comment). The real delete logic lives entirely in that
+            // capturing listener instead, same as the checkbox case.
+            showActions: true,
+            onDelete: function() {},
             onRowClick: function(item, id) {
                 if (typeof SecScanVulnDetail !== 'undefined') {
                     SecScanVulnDetail.open(id, item);
@@ -183,7 +193,12 @@ window.SecScanGroupDetail = (function() {
             // stopping it here prevents onRowClick from firing at all; the
             // selection toggle itself has to happen in this same listener
             // (a separate bubble-phase listener on this element would never
-            // be reached once propagation is stopped during capture).
+            // be reached once propagation is stopped during capture). The
+            // Delete button (rendered by showActions/onDelete above) needs
+            // the exact same treatment -- and since stopPropagation() here
+            // during capture ALSO prevents Layer8DTable's own target-phase
+            // button listener from ever firing, the actual delete call has
+            // to happen directly in this handler too, not in onDelete.
             container.addEventListener('click', function(e) {
                 if (e.target && e.target.classList.contains('secscan-ref-select')) {
                     e.stopPropagation();
@@ -191,9 +206,46 @@ window.SecScanGroupDetail = (function() {
                     const label = e.target.getAttribute('data-label');
                     SecScanImageSelection.toggle(id, label);
                     updateSelectionHint(body);
+                } else if (e.target && e.target.getAttribute('data-action') === 'delete') {
+                    e.stopPropagation();
+                    const id = e.target.getAttribute('data-id');
+                    deleteImageRef(id, body);
                 }
             }, true);
         }
+    }
+
+    // ImgRefDelete (a dedicated action service, not a plain ORM DELETE on
+    // ImageRef) also recomputes the parent ImageGroup's rollup cache
+    // server side -- ImageRefServiceCallback.After() (RecomputeImageGroupCache)
+    // only fires on PUT/PATCH, never DELETE, so a plain DELETE here would
+    // leave the group's cached imageRefCount/newestCounts stale (verified
+    // against l8common's genericCallback source).
+    function deleteImageRef(id, body) {
+        if (!confirm('Delete this image reference? This cannot be undone.')) return;
+        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgRefDelete'), {
+            method: 'POST',
+            body: JSON.stringify({ imageRefId: id })
+        }).then(function(resp) {
+            if (!resp || !resp.ok) {
+                return (resp ? resp.text() : Promise.resolve('Delete failed')).then(function(t) {
+                    throw new Error(t || 'Delete failed');
+                });
+            }
+            Layer8DNotification.success('Image reference deleted');
+            SecScanImageSelection.remove(id);
+            updateSelectionHint(body);
+            // Layer8DTable has no .refresh() -- fetchData(currentPage,
+            // pageSize) is the real reload call (same one
+            // layer8d-module-crud.js's own _deleteItem uses).
+            if (refTable) refTable.fetchData(refTable.currentPage, refTable.pageSize);
+            if (typeof SecScan !== 'undefined' && SecScan.refreshCurrentTable) {
+                SecScan.refreshCurrentTable();
+            }
+        }).catch(function(err) {
+            console.error('Group Detail: failed to delete image ref', err);
+            Layer8DNotification.error('Failed to delete image reference: ' + err.message);
+        });
     }
 
     function sevCell(counts, sevKey) {

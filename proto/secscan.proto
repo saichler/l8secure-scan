@@ -185,3 +185,16 @@ message ImgRefAddResponse {
 message VulnRepRequest {
   string customer_id = 1;
 }
+
+// ImgRefDelete: delete one ImageRef and recompute its parent ImageGroup's
+// rollup cache in the same call -- a plain ORM DELETE on ImageRef can't do
+// this itself, since ImageRefServiceCallback.After() (RecomputeImageGroupCache)
+// only fires on PUT/PATCH, never DELETE (l8common.genericCallback, verified
+// against its source). Group Detail's per-row Delete button uses this
+// instead of DELETE-ing ImageRef directly.
+message ImgRefDeleteRequest {
+  string image_ref_id = 1;
+}
+message ImgRefDeleteResponse {
+  string image_group_id = 1;
+}

@@ -197,10 +197,14 @@ window.SecScanGroupDetail_M = (function() {
         const columns = [
             Object.assign({}, Layer8ColumnFactory.custom('repoName', 'Repo', function(item) {
                 const checked = selectedIds.has(item.imageRefId) ? ' checked' : '';
+                const label = (item.repoName || '') + (item.tag ? ':' + item.tag : '');
                 return '<label class="secscan-m-ref-select-label" onclick="event.stopPropagation()">' +
                     '<input type="checkbox" class="secscan-m-ref-select" data-id="' + item.imageRefId + '"' + checked + '> ' +
                     Layer8MUtils.escapeHtml(item.repoName) + ':' + Layer8MUtils.escapeHtml(item.tag || '') +
-                    '</label>';
+                    '</label>' +
+                    '<button type="button" class="secscan-m-ref-delete-btn" data-action="delete-ref" ' +
+                    'data-id="' + item.imageRefId + '" data-label="' + Layer8MUtils.escapeHtml(label) + '" ' +
+                    'onclick="event.stopPropagation()">Delete</button>';
             })[0], { primary: true }),
             Object.assign({}, Layer8ColumnFactory.custom('buildDate', 'Build Date', function(item) {
                 if (item.scanError && !item.buildDate) {
@@ -240,9 +244,36 @@ window.SecScanGroupDetail_M = (function() {
                         selectedIds.delete(id);
                     }
                     updateScanButton(body);
+                } else if (e.target && e.target.getAttribute('data-action') === 'delete-ref') {
+                    e.stopPropagation();
+                    const id = e.target.getAttribute('data-id');
+                    const label = e.target.getAttribute('data-label');
+                    deleteImageRef(id, label, body);
                 }
             });
         }
+    }
+
+    // ImgRefDelete (a dedicated action service, not a plain ORM DELETE on
+    // ImageRef) also recomputes the parent ImageGroup's rollup cache
+    // server side -- ImageRefServiceCallback.After() (RecomputeImageGroupCache)
+    // only fires on PUT/PATCH, never DELETE, so a plain DELETE here would
+    // leave the group's cached imageRefCount/newestCounts stale (verified
+    // against l8common's genericCallback source, same fix as desktop's
+    // group-detail.js).
+    function deleteImageRef(id, label, body) {
+        if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
+        Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ImgRefDelete'), { imageRefId: id })
+            .then(function(resp) {
+                if (!resp) throw new Error('Delete failed');
+                Layer8MUtils.showSuccess('Image reference deleted');
+                selectedIds.delete(id);
+                updateScanButton(body);
+                if (refTable) refTable.refresh();
+            }).catch(function(err) {
+                console.error('Group Detail (mobile): failed to delete image ref', err);
+                Layer8MUtils.showError('Failed to delete image reference: ' + err.message);
+            });
     }
 
     // JobStatus enum (proto/secscan.proto): 1=QUEUED (never set anymore --
