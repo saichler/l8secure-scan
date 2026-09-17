@@ -30,7 +30,11 @@ test.describe('dashboard', () => {
       const card = widgets.filter({ hasText: label });
       await expect(card).toHaveCount(1);
       const valueText = await card.locator('.layer8d-widget-value').innerText();
-      expect(valueText.trim()).toMatch(/^[\d,]+$/);
+      // CVEs (Latest) shows a per-severity breakdown ("C:1 H:2 M:3 L:4"),
+      // not a single number -- the whole point being that a combined
+      // total would hide which severities the CVEs actually fall under.
+      const expected = label === 'CVEs (Latest)' ? /^C:\d+ H:\d+ M:\d+ L:\d+$/ : /^[\d,]+$/;
+      expect(valueText.trim()).toMatch(expected);
     }
 
     // Toolbar: Add Images always enabled, Scan Images starts disabled

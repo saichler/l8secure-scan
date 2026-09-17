@@ -21,7 +21,6 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
             <div class="nav-stat-content">
                 <div class="nav-stat-value" id="stat-critical">-</div>
                 <div class="nav-stat-label">CVEs (Latest)</div>
-                <div class="nav-stat-sublabel" id="stat-critical-breakdown"></div>
             </div>
         </div>
         <div class="nav-stat-card">
@@ -48,27 +47,24 @@ function loadDashboardStats() {
             var el = document.getElementById(id);
             if (el) el.textContent = '0';
         });
-        var breakdownEl = document.getElementById('stat-critical-breakdown');
-        if (breakdownEl) breakdownEl.textContent = '';
         return;
     }
     SecScan.loadKpis(customerId).then(function(kpis) {
         var cve = kpis.cveStats || { critical: 0, high: 0, medium: 0, low: 0 };
-        var cveTotal = cve.critical + cve.high + cve.medium + cve.low;
+        // Per-severity breakdown IS the value here, not a combined sum --
+        // same "C:x H:x M:x L:x" format used everywhere else in this app
+        // (Images table's Vulnerabilities column, CSV report).
+        var cveValue = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
         var map = {
             'stat-groups': kpis.totalGroups,
             'stat-pending': kpis.pendingScans,
-            'stat-critical': cveTotal,
+            'stat-critical': cveValue,
             'stat-unscanned': kpis.unscannedGroups
         };
         Object.keys(map).forEach(function(id) {
             var el = document.getElementById(id);
             if (el) el.textContent = map[id];
         });
-        // Same "C:x H:x M:x L:x" breakdown format used everywhere else in
-        // this app (Images table's Vulnerabilities column, CSV report).
-        var breakdownEl = document.getElementById('stat-critical-breakdown');
-        if (breakdownEl) breakdownEl.textContent = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
     });
 }
 </script>

@@ -19,6 +19,21 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     padding: 12px 0;
 }
 
+/* CVEs (Latest) card's value is a per-severity breakdown string
+   ("C:1 H:2 M:3 L:4"), not a short number -- the default 24px/700 KPI
+   value size overflows the card at any severity count worth 2+ digits.
+   Smaller font + explicit wrap (never nowrap -- counts are unbounded,
+   so a fixed size can't guarantee a single line fits) keeps it inside
+   the card at any count. */
+/* app.html loads l8ui/dashboard/layer8d-widget.css AFTER this file, so
+   its same-specificity .layer8d-widget-value{font-size:24px} would win
+   on source order alone -- pair the selector with it to out-specify. */
+.layer8d-widget-value.secscan-kpi-cve-value {
+    font-size: 14px;
+    line-height: 1.3;
+    white-space: normal;
+}
+
 .secscan-dashboard-content {
     flex: 1;
     min-height: 0;

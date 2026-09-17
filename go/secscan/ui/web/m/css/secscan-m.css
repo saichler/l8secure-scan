@@ -239,6 +239,23 @@ html, body {
     cursor: pointer;
 }
 
+/* CVEs (Latest) card's value is a per-severity breakdown string
+   ("C:1 H:2 M:3 L:4"), not a short number -- the default nav-stat-value
+   size overflows the card at any severity count worth 2+ digits.
+   Smaller font + explicit wrap (never nowrap -- counts are unbounded,
+   so a fixed size can't guarantee a single line fits) keeps it inside
+   the card at any count. */
+/* app.html loads l8ui/m/css/layer8m-nav-cards.css AFTER this file, so
+   its same-specificity .nav-stat-value{font-size:...} would win on
+   source order alone -- pair the class selector with it to out-specify
+   (#stat-critical is already an id, always ahead of a single class). */
+#stat-critical,
+.nav-stat-value.secscan-m-kpi-cve-value {
+    font-size: 13px;
+    line-height: 1.3;
+    white-space: normal;
+}
+
 .secscan-m-scan-failure-item {
     padding: 8px 0;
     border-bottom: 1px solid var(--layer8d-border, #e2e8f0);

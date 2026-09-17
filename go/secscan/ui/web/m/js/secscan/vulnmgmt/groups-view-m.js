@@ -17,24 +17,23 @@ window.SecScanGroupsView_M = (function() {
 
     const CONTAINER_ID = 'secscan-m-groups-view-container';
 
-    function statCard(value, label, sublabel) {
+    function statCard(value, label, valueClass) {
         return '<div class="nav-stat-card"><div class="nav-stat-content">' +
-            '<div class="nav-stat-value">' + Layer8MUtils.escapeHtml(String(value)) + '</div>' +
+            '<div class="nav-stat-value' + (valueClass ? ' ' + valueClass : '') + '">' + Layer8MUtils.escapeHtml(String(value)) + '</div>' +
             '<div class="nav-stat-label">' + Layer8MUtils.escapeHtml(label) + '</div>' +
-            (sublabel ? '<div class="nav-stat-sublabel">' + Layer8MUtils.escapeHtml(sublabel) + '</div>' : '') +
             '</div></div>';
     }
 
     function renderStrip(kpis) {
         const cve = kpis.cveStats || { critical: 0, high: 0, medium: 0, low: 0 };
-        const cveTotal = cve.critical + cve.high + cve.medium + cve.low;
-        // Same "C:x H:x M:x L:x" breakdown format used everywhere else in
-        // this app (Images table's Vulnerabilities column, CSV report).
-        const cveSubtitle = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
+        // Per-severity breakdown IS the card's value, not a combined sum --
+        // same "C:x H:x M:x L:x" format used everywhere else in this app
+        // (Images table's Vulnerabilities column, CSV report).
+        const cveValue = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
         return '<div class="nav-stats-grid secscan-m-kpi-strip">' +
             statCard(kpis.totalGroups, 'Image Groups') +
             statCard(kpis.pendingScans, 'Pending Scans') +
-            statCard(cveTotal, 'CVEs (Latest)', cveSubtitle) +
+            statCard(cveValue, 'CVEs (Latest)', 'secscan-m-kpi-cve-value') +
             statCard(kpis.unscannedGroups, 'Not Yet Scanned') +
             '</div>';
     }

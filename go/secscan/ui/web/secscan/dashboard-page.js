@@ -89,14 +89,19 @@ window.SecScanDashboardKpis = (function() {
 
     function renderStrip(kpis) {
         const cve = kpis.cveStats || { critical: 0, high: 0, medium: 0, low: 0 };
-        const cveTotal = cve.critical + cve.high + cve.medium + cve.low;
-        // Same "C:x H:x M:x L:x" breakdown format used everywhere else in
-        // this app (Images table's Vulnerabilities column, CSV report).
-        const cveSubtitle = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
+        // Per-severity breakdown IS the card's value -- a single summed
+        // total would hide, e.g., "40 Low" behind the same number as
+        // "40 Critical", which is exactly the distinction this card
+        // exists to show. Same "C:x H:x M:x L:x" format used everywhere
+        // else in this app (Images table's Vulnerabilities column, CSV
+        // report). Layer8DWidget.render's formatNumber() only special-
+        // cases actual numbers (>=1000/1000000), so a plain string value
+        // passes through untouched.
+        const cveValue = 'C:' + cve.critical + ' H:' + cve.high + ' M:' + cve.medium + ' L:' + cve.low;
         const cards = [
             Layer8DWidget.render({ label: 'Images', icon: 'icon-image', iconSvg: KPI_ICONS['icon-image'] }, kpis.totalGroups, {}),
             Layer8DWidget.render({ label: 'Pending Scans', icon: 'icon-clock', iconSvg: KPI_ICONS['icon-clock'] }, kpis.pendingScans, {}),
-            Layer8DWidget.render({ label: 'CVEs (Latest)', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, cveTotal, { subtitle: cveSubtitle }),
+            Layer8DWidget.render({ label: 'CVEs (Latest)', icon: 'icon-alert', iconSvg: KPI_ICONS['icon-alert'] }, cveValue, { valueClass: 'secscan-kpi-cve-value' }),
             Layer8DWidget.render({ label: 'Groups Not Yet Scanned', icon: 'icon-question', iconSvg: KPI_ICONS['icon-question'] }, kpis.unscannedGroups, {})
         ];
         return '<div class="secscan-kpi-strip">' + cards.join('') + '</div>';
