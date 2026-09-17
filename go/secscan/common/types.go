@@ -32,4 +32,12 @@ func RegisterSecscanTypes(resources ifs.IResources) {
 	// its Endpoints map empty ("endpoint not found for action VulnRep
 	// area 60 1" on every POST).
 	resources.Registry().Register(&l8api.L8CsvExportResponse{})
+	// Same class of bug hit again, live: without these two, secscan-web
+	// couldn't deserialize ImgRefDel's endpoint definition either
+	// ("endpoint not found for action ImgRefDel area 60 1" on every
+	// POST) -- every custom action-service request/response type needs
+	// registering here too, not just on the backend that actually
+	// Activate()s the service.
+	resources.Registry().Register(&secscan.ImgRefDeleteRequest{})
+	resources.Registry().Register(&secscan.ImgRefDeleteResponse{})
 }
