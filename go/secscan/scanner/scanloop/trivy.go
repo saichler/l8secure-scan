@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -87,10 +89,44 @@ func isImageNotFound(stderrText string) bool {
 // around it concurrent -- those don't touch Trivy's cache at all.
 var trivyMu sync.Mutex
 
-// runTrivyCLI shells out to `trivy image --format json <target>` and
-// parses its output. tag takes precedence over digest when both/neither
-// are empty is a caller bug (PrepareImageRef always sets at least a tag
-// from a parsed reference, or the ref would never have been ingested).
+// TrivyLocalImageDirEnv names a directory of pre-saved `docker save`
+// tarballs, keyed by sanitized image reference (see localImageTarPath) --
+// checked before falling back to Trivy's own image-src chain
+// (containerd/remote). Real fix for two separate, confirmed-live
+// problems: (1) Docker Hub's anonymous pull rate limit exhausting on
+// repeated scans of images this host already has locally (this project's
+// own images, plus its sibling ../probler, ../l8erp projects'), and (2) a
+// genuine Trivy v0.74.0 + containerd v2.2.1 incompatibility (its
+// containerd image source only reliably reads a layer's content on the
+// FIRST containerd-sourced scan in a scanner pod's lifetime -- every
+// subsequent one fails with "unable to populate: unable to open: failed
+// to copy the image: ... not found", reproduced even for images actively
+// running as real pods, and unaffected by clearing containerd's
+// leases/snapshots). Scanning a local tarball via `--input` bypasses both
+// the registry and containerd entirely, so neither problem can occur.
+// Unset (the default on non-KIND deployments) -- normal registry-pull
+// scanning is unaffected.
+const TrivyLocalImageDirEnv = "TRIVY_LOCAL_IMAGE_DIR"
+
+// localImageTarPath returns the path a pre-saved tarball for this exact
+// image reference would live at, if TRIVY_LOCAL_IMAGE_DIR is set -- ""
+// otherwise. Matches the naming convention the one-time host-side
+// `docker save` population step uses (k8s/kind-preload-images.sh).
+func localImageTarPath(target string) string {
+	dir := os.Getenv(TrivyLocalImageDirEnv)
+	if dir == "" {
+		return ""
+	}
+	safeName := strings.NewReplacer("/", "_", ":", "_", "@", "_").Replace(target)
+	return filepath.Join(dir, safeName+".tar")
+}
+
+// runTrivyCLI shells out to `trivy image --format json <target>` (or
+// `--input <tarball>` when a pre-saved local tarball exists for target,
+// see localImageTarPath) and parses its output. tag takes precedence over
+// digest when both/neither are empty is a caller bug (PrepareImageRef
+// always sets at least a tag from a parsed reference, or the ref would
+// never have been ingested).
 func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	target := repoName
 	switch {
@@ -102,10 +138,21 @@ func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 		return nil, errors.New("image reference has neither tag nor digest")
 	}
 
+	args := []string{"image", "--format", "json"}
+	if tarPath := localImageTarPath(target); tarPath != "" {
+		if _, statErr := os.Stat(tarPath); statErr == nil {
+			args = append(args, "--input", tarPath)
+		} else {
+			args = append(args, target)
+		}
+	} else {
+		args = append(args, target)
+	}
+
 	trivyMu.Lock()
 	defer trivyMu.Unlock()
 
-	cmd := exec.Command("trivy", "image", "--format", "json", target)
+	cmd := exec.Command("trivy", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

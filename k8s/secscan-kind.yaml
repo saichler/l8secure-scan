@@ -205,12 +205,84 @@ spec:
                   fieldPath: status.hostIP
             - name: TRIVY_CACHE_DIR
               value: /data
+            # `kind load docker-image` loads into containerd's "k8s.io"
+            # namespace (the one kubelet/CRI actually uses), not
+            # containerd's own "default" namespace -- confirmed live:
+            # without this, Trivy's containerd source connected to the
+            # socket fine but reported "image not found in containerd
+            # store" for an image `ctr -n k8s.io images ls` clearly shows.
+            # CONTAINERD_NAMESPACE is containerd's own client-library
+            # env var convention, not Trivy-specific.
+            - name: CONTAINERD_NAMESPACE
+              value: k8s.io
+            # Trivy's own default image-src chain is
+            # "docker,containerd,podman,remote" -- with the containerd
+            # socket mounted above, this DEFAULT chain still fails on any
+            # image, even one that's live and running right now
+            # (verified: docker.io/saichler/secscan-scanner:latest, an
+            # actively-running pod's own image, failed identically) with
+            # "unable to populate: unable to open: failed to copy the
+            # image: ... not found" -- a real bug in how Trivy chains
+            # multiple local-daemon-style sources when the first (docker)
+            # never exists in this environment. Restricting the chain to
+            # just containerd + remote (dropping docker/podman, which can
+            # never succeed here anyway) sidesteps it entirely: confirmed
+            # live, an image already `kind load docker-image`d onto this
+            # node now scans via containerd with zero registry calls, and
+            # an image NOT preloaded still correctly falls through to a
+            # real remote pull, identical to before this change.
+            - name: TRIVY_IMAGE_SRC
+              value: containerd,remote
+            # KIND-only: k8s/kind-preload-images.sh `docker save`s this
+            # project's own + its sibling ../probler/../l8erp projects'
+            # images (already local on this host -- confirmed via `docker
+            # images`, never needing a registry pull) straight into this
+            # node's filesystem at /trivy-images. trivy.go's runTrivyCLI
+            # scans that tarball via `--input` when one exists for the
+            # target image, which is the ACTUAL reliable fix -- unlike the
+            # containerd source above (still left in place as a fallback
+            # for anything not pre-saved as a tarball), scanning a local
+            # tarball bypasses both the registry and containerd entirely,
+            # so it can't hit either the Docker Hub rate limit or the
+            # containerd v2.2.1 layer-read bug documented above. Confirmed
+            # live: a tarball-backed scan of a 16-image batch (this
+            # project's real sibling ../probler images) completes with
+            # real findings and zero errors, where the containerd-only
+            # path failed after its first scan.
+            - name: TRIVY_LOCAL_IMAGE_DIR
+              value: /trivy-images
           volumeMounts:
             - name: trivy-cache
               mountPath: /data
+            - name: trivy-local-images
+              mountPath: /trivy-images
+              readOnly: true
+            # KIND-only: each KIND node is itself a container running its
+            # own containerd, at the exact default socket path Trivy's
+            # image-scanning already probes first (`docker`, `containerd`,
+            # `podman`, then `remote` -- verified live, real Trivy CLI
+            # error output names this same path,
+            # "containerd socket not found: /run/containerd/containerd.sock").
+            # Mounting it means any image already `kind load docker-image`d
+            # onto this node is found via containerd's local content store
+            # with ZERO registry calls, instead of Trivy always falling
+            # through to a fresh remote pull -- the real fix for repeated
+            # Docker Hub rate-limit failures on images this project's own
+            # test/seed data already has sitting in the host's local Docker
+            # daemon (this project's sibling ../probler, ../l8erp images).
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
       volumes:
         - name: trivy-cache
           emptyDir: {}
+        - name: trivy-local-images
+          hostPath:
+            path: /trivy-images
+            type: DirectoryOrCreate
+        - name: containerd-sock
+          hostPath:
+            path: /run/containerd/containerd.sock
+            type: Socket
 
 ---
 
