@@ -22,9 +22,9 @@ const (
 	// secscan-scanner: the Dashboard/mobile "Scan Selected" POST target.
 	// It writes to ScanJobsServiceName as scanning progresses
 	// (plans/scanjob-live-progress.md).
-	ScanJobServiceName      = "ScanJob"
-	ImgRefAddServiceName    = "ImgRefAdd"
-	VulnRepServiceName      = "VulnRep"
+	ScanJobServiceName   = "ScanJob"
+	ImgRefAddServiceName = "ImgRefAdd"
+	VulnRepServiceName   = "VulnRep"
 	// Must be under 10 characters (SLA service-name limit, a real panic
 	// caught only by actually running this: "SLA Service name
 	// ImgRefDelete must be less than 10 characters long").

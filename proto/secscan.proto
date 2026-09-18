@@ -6,12 +6,17 @@ import "api.proto";
 import "l8common.proto";
 
 enum ScanStatus {
-  SCAN_STATUS_UNSPECIFIED = 0;
-  SCAN_STATUS_PENDING     = 1;
-  SCAN_STATUS_SCANNING    = 2;
-  SCAN_STATUS_COMPLETED   = 3;
-  SCAN_STATUS_FAILED      = 4;
-  SCAN_STATUS_MISSING     = 5;
+  SCAN_STATUS_UNSPECIFIED   = 0;
+  SCAN_STATUS_PENDING       = 1;
+  SCAN_STATUS_SCANNING      = 2;
+  SCAN_STATUS_COMPLETED     = 3;
+  SCAN_STATUS_FAILED        = 4;
+  SCAN_STATUS_MISSING       = 5;
+  // Trivy failed with a registry auth error (denied/unauthorized) and no
+  // usable credential was found for the image's registry host -- distinct
+  // from FAILED so the UI can offer a "provide credentials and retry"
+  // action instead of just reporting a dead end.
+  SCAN_STATUS_AUTH_REQUIRED = 6;
 }
 
 enum Severity {

@@ -25,7 +25,7 @@ func testMissingImage(t *testing.T, vnic ifs.IVNic) {
 
 	origRunTrivy := scanloop.RunTrivy
 	defer func() { scanloop.RunTrivy = origRunTrivy }()
-	scanloop.RunTrivy = func(repoName, tag, digest string) (*scanloop.TrivyReport, error) {
+	scanloop.RunTrivy = func(repoName, tag, digest, username, password string) (*scanloop.TrivyReport, error) {
 		return nil, fmt.Errorf("%w: manifest unknown", scanloop.ErrImageNotFound)
 	}
 

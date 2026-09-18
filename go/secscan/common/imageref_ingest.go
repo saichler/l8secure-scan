@@ -88,6 +88,27 @@ func deriveImageName(repoName string) string {
 	return strings.ToLower(name)
 }
 
+// RegistryHost returns the registry host repoName's first path segment
+// resolves to, using the real Docker reference convention (not "the first
+// segment, always"): a segment only counts as a host if it contains a '.'
+// or ':', or is exactly "localhost" -- otherwise the image has no explicit
+// registry and is implicitly on docker.io (e.g. "saichler/secscan" ->
+// "docker.io", not "saichler"; "gcr.io/proj/img" -> "gcr.io";
+// "localhost:5000/img" -> "localhost:5000").
+func RegistryHost(repoName string) string {
+	first := repoName
+	if idx := strings.Index(repoName, "/"); idx >= 0 {
+		first = repoName[:idx]
+	} else {
+		// No slash at all -- a bare name like "busybox" has no explicit host.
+		return "docker.io"
+	}
+	if first == "localhost" || strings.ContainsAny(first, ".:") {
+		return first
+	}
+	return "docker.io"
+}
+
 // PrepareImageRef is the single shared "Phase A" ingestion helper (PRD
 // §6.1) run for every new ImageRef, regardless of entry point: it derives
 // imageName, dedupes against existing rows, finds-or-creates the parent

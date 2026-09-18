@@ -33,9 +33,14 @@ window.SecScanGroupDetail = (function() {
         ['Scanning', 'scanning', 'layer8d-status-active'],
         ['Completed', 'completed', 'layer8d-status-active'],
         ['Failed', 'failed', 'layer8d-status-terminated'],
-        ['Missing', 'missing', 'layer8d-status-warning']
+        ['Missing', 'missing', 'layer8d-status-warning'],
+        // Trivy hit a registry auth error (denied/unauthorized) and no
+        // usable stored credential fixed it -- same "warning" style as
+        // Missing (recoverable via user action), not Failed (dead end).
+        ['AuthRequired', 'auth-required', 'layer8d-status-warning']
     ]);
     const renderScanStatus = Layer8DRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
+    const SCAN_STATUS_AUTH_REQUIRED = 6;
 
     let currentGroupId = null;
     let refTable = null;
@@ -146,6 +151,10 @@ window.SecScanGroupDetail = (function() {
                 return item.buildDate ? Layer8DUtils.formatDate(item.buildDate) : 'Resolving…';
             }, { sortKey: 'buildDate' }),
             ...Layer8ColumnFactory.status('scanStatus', 'Scan Status', SCAN_STATUS.values, renderScanStatus),
+            ...Layer8ColumnFactory.custom('_authAction', '', function(item) {
+                if (item.scanStatus !== SCAN_STATUS_AUTH_REQUIRED) return '';
+                return '<button type="button" class="l8-btn l8-btn-small" data-action="provide-creds" data-id="' + item.imageRefId + '">Provide Credentials</button>';
+            }, { sortKey: false }),
             ...Layer8ColumnFactory.custom('totalCounts', 'Total', function(item) { return vulnCell(item.totalCounts); }, { sortKey: false }),
             ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct', function(item) { return vulnCell(item.distinctCounts); }, { sortKey: false })
         ];
@@ -210,6 +219,12 @@ window.SecScanGroupDetail = (function() {
                     e.stopPropagation();
                     const id = e.target.getAttribute('data-id');
                     deleteImageRef(id, body);
+                } else if (e.target && e.target.getAttribute('data-action') === 'provide-creds') {
+                    e.stopPropagation();
+                    const id = e.target.getAttribute('data-id');
+                    fetchImageRef(id).then(function(ref) {
+                        if (ref) openAuthPopup(ref, group, body);
+                    });
                 }
             }, true);
         }
@@ -245,6 +260,130 @@ window.SecScanGroupDetail = (function() {
         }).catch(function(err) {
             console.error('Group Detail: failed to delete image ref', err);
             Layer8DNotification.error('Failed to delete image reference: ' + err.message);
+        });
+    }
+
+    function fetchImageRef(id) {
+        const query = encodeURIComponent(JSON.stringify({ text: "select * from ImageRef where imageRefId='" + id + "'" }));
+        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImageRef?body=' + query))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) { return (data && data.list && data.list[0]) || null; });
+    }
+
+    // Mirrors go/secscan/common/imageref_ingest.go's RegistryHost exactly
+    // -- keep in sync if that rule ever changes. Only used to pre-fill the
+    // popup's title/label; the server is the actual authority on which
+    // host a scan retry looks credentials up under.
+    function parseRegistryHost(repoName) {
+        const slash = (repoName || '').indexOf('/');
+        if (slash < 0) return 'docker.io';
+        const first = repoName.slice(0, slash);
+        if (first === 'localhost' || first.indexOf('.') !== -1 || first.indexOf(':') !== -1) {
+            return first;
+        }
+        return 'docker.io';
+    }
+
+    // Registry auth-required popup: collects a username/password for the
+    // image's registry host, saves it into the existing System > Security
+    // > Credentials store (/75/Creds, L8Credentials) under a single
+    // "registries" group -- one credential item per host, keyed by that
+    // host, aside=username/zside=password (convention documented at
+    // go/secscan/scanner/scanloop/image.go's Credential() call site) --
+    // then retries just this one image. No client-side opsadmin gate: this
+    // app has no client-side role check anywhere (verified, see
+    // go/secscan/ui/web/js/app.js's own note on why), so a non-opsadmin
+    // user can open this popup but the /75/Creds write is denied server
+    // side, surfaced as the inline error below -- the real enforcement
+    // boundary, same as every other admin-only action in this app.
+    function openAuthPopup(ref, group, refsBody) {
+        const host = parseRegistryHost(ref.repoName);
+        const formHtml = '<div class="form-group">' +
+            '<p>Registry <strong>' + Layer8DUtils.escapeHtml(host) + '</strong> rejected the pull for ' +
+            Layer8DUtils.escapeHtml(ref.repoName + (ref.tag ? ':' + ref.tag : '')) + '.</p>' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label for="secscan-auth-username">Username</label>' +
+            '<input type="text" id="secscan-auth-username" autocomplete="off">' +
+            '</div>' +
+            '<div class="form-group">' +
+            '<label for="secscan-auth-password">Password / Token</label>' +
+            '<input type="password" id="secscan-auth-password" autocomplete="off">' +
+            '</div>' +
+            '<div id="secscan-auth-error" class="layer8d-status-terminated" style="display:none;"></div>';
+
+        Layer8DPopup.show({
+            title: 'Registry Authentication Required',
+            content: formHtml,
+            size: 'medium',
+            showFooter: true,
+            saveButtonText: 'Submit',
+            onSave: function() { submitAndRetry(ref, group, host, refsBody); },
+            onCancel: function() { cancelScan(ref, refsBody); }
+        });
+    }
+
+    function showAuthError(message) {
+        const el = Layer8DPopup.getBody() && Layer8DPopup.getBody().querySelector('#secscan-auth-error');
+        if (!el) return;
+        el.textContent = message;
+        el.style.display = 'block';
+    }
+
+    function submitAndRetry(ref, group, host, refsBody) {
+        const body = Layer8DPopup.getBody();
+        const username = (body.querySelector('#secscan-auth-username') || {}).value || '';
+        const password = (body.querySelector('#secscan-auth-password') || {}).value || '';
+        if (!username || !password) {
+            showAuthError('Username and password/token are both required.');
+            return;
+        }
+
+        // Not Layer8DForms.fetchRecord -- its generic WHERE clause leaves a
+        // string primary key unquoted ("where id=registries"), which
+        // L8QueryRules says will not match a string literal. Building the
+        // query directly here quotes it correctly (same fix mobile's
+        // group-detail-m.js applies).
+        const query = encodeURIComponent(JSON.stringify({ text: "select * from L8Credentials where id='registries'" }));
+        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/75/Creds?body=' + query))
+            .then(function(r) { return r ? r.json() : null; })
+            .then(function(data) {
+                const existing = data && data.list && data.list[0];
+                const payload = existing || { id: 'registries', name: 'Registry Credentials', creds: {} };
+                payload.creds = payload.creds || {};
+                payload.creds[host] = { aside: username, zside: password, yside: '' };
+                return Layer8DForms.saveRecord(Layer8DConfig.resolveEndpoint('/75/Creds'), payload, !!existing);
+            })
+            .then(function() {
+                return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ScanJob'), {
+                    method: 'POST',
+                    body: JSON.stringify({ customerId: group.customerId, imageRefIds: [ref.imageRefId] })
+                });
+            })
+            .then(function(resp) {
+                if (!resp || !resp.ok) throw new Error('Failed to start retry scan');
+                Layer8DPopup.close();
+                Layer8DNotification.info('Retrying scan with the new credentials…');
+                if (refTable) refTable.fetchData(refTable.currentPage, refTable.pageSize);
+            })
+            .catch(function(err) {
+                console.error('Group Detail: failed to save credentials / retry scan', err);
+                showAuthError(err.message || 'Failed to save credentials or start the retry scan.');
+            });
+    }
+
+    function cancelScan(ref, refsBody) {
+        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImageRef'), {
+            method: 'PUT',
+            body: JSON.stringify({
+                imageRefId: ref.imageRefId,
+                scanStatus: 4, // SCAN_STATUS_FAILED
+                scanError: 'Scan cancelled: registry authentication was not provided'
+            })
+        }).then(function() {
+            if (refTable) refTable.fetchData(refTable.currentPage, refTable.pageSize);
+        }).catch(function(err) {
+            console.error('Group Detail: failed to mark scan cancelled', err);
         });
     }
 

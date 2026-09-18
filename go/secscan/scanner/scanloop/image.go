@@ -32,7 +32,22 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 		return false
 	}
 
-	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest)
+	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest, "", "")
+	if err != nil && errors.Is(err, ErrAuthRequired) {
+		host := scommon.RegistryHost(ref.RepoName)
+		// "registries" group, one credential item per registry host --
+		// convention documented at the ISecurityProvider.Credential call
+		// site itself (aside=username, zside=password/token, yside
+		// unused). Same lookup mechanism l8common's own ActivateService
+		// already uses for DB credentials.
+		aside, zside, _, _, credErr := vnic.Resources().Security().Credential("registries", host, vnic.Resources())
+		if credErr == nil {
+			report, err = RunTrivy(ref.RepoName, ref.Tag, ref.Digest, aside, zside)
+		}
+		if err != nil && errors.Is(err, ErrAuthRequired) {
+			return authRequiredImage(ref, host, vnic)
+		}
+	}
 	if err != nil {
 		if errors.Is(err, ErrImageNotFound) {
 			return missingImage(ref, err.Error(), vnic)
@@ -77,6 +92,20 @@ func missingImage(ref *secscan.ImageRef, reason string, vnic ifs.IVNic) bool {
 	ref.ScanError = reason
 	if err := l8common.PutEntity(scommon.ImageRefServiceName, scommon.ServiceArea, ref, vnic); err != nil {
 		vnic.Resources().Logger().Error("scanloop: failed to mark ImageRef MISSING ", ref.ImageRefId, ": ", err.Error())
+	}
+	return false
+}
+
+// authRequiredImage marks an ImageRef AUTH_REQUIRED rather than FAILED --
+// the registry rejected the pull for lacking (or having wrong) credentials
+// and no usable "registries"-group credential was found for host, as
+// opposed to a generic scan failure. Distinct so the UI can offer a
+// "provide credentials and retry" action instead of a dead end.
+func authRequiredImage(ref *secscan.ImageRef, host string, vnic ifs.IVNic) bool {
+	ref.ScanStatus = secscan.ScanStatus_SCAN_STATUS_AUTH_REQUIRED
+	ref.ScanError = "registry authentication required for " + host
+	if err := l8common.PutEntity(scommon.ImageRefServiceName, scommon.ServiceArea, ref, vnic); err != nil {
+		vnic.Resources().Logger().Error("scanloop: failed to mark ImageRef AUTH_REQUIRED ", ref.ImageRefId, ": ", err.Error())
 	}
 	return false
 }

@@ -117,6 +117,7 @@ func TestAllServices(t *testing.T) {
 	testIngestion(t, client, servicesVnic)
 	testResolver(t, servicesVnic)
 	testScanPipeline(t, servicesVnic)
+	testScanAuthRequired(t, servicesVnic)
 	testMissingImage(t, servicesVnic)
 	testReporting(t, client, servicesVnic)
 	testSecurity(t, client, servicesVnic)

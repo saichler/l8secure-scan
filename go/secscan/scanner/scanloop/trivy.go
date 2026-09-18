@@ -78,6 +78,30 @@ func isImageNotFound(stderrText string) bool {
 	return false
 }
 
+// ErrAuthRequired wraps a RunTrivy error when the registry rejected the
+// pull for lacking (or having wrong) credentials -- the counterpart
+// imageNotFoundMarkers' own comment already calls out as excluded from
+// MISSING. image.go checks errors.Is(err, ErrAuthRequired) to look up a
+// stored credential (ifs.ISecurityProvider.Credential, "registries" group,
+// keyed by common.RegistryHost(ref.RepoName)) and retry once before
+// marking the ImageRef SCAN_STATUS_AUTH_REQUIRED instead of FAILED.
+var ErrAuthRequired = errors.New("registry authentication required")
+
+var authDeniedMarkers = []string{
+	"denied",
+	"unauthorized",
+}
+
+func isAuthDenied(stderrText string) bool {
+	lower := strings.ToLower(stderrText)
+	for _, marker := range authDeniedMarkers {
+		if strings.Contains(lower, marker) {
+			return true
+		}
+	}
+	return false
+}
+
 // trivyMu serializes actual `trivy` CLI invocations. scanloop.go scans up
 // to imagePoolSize (4) images concurrently, but Trivy's local cache
 // directory (vulnerability DB + the fanal filesystem/layer-analysis cache)
@@ -127,7 +151,14 @@ func localImageTarPath(target string) string {
 // digest when both/neither are empty is a caller bug (PrepareImageRef
 // always sets at least a tag from a parsed reference, or the ref would
 // never have been ingested).
-func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
+//
+// username/password are optional (empty on the normal first attempt) --
+// image.go's scanOneImage passes a stored "registries" credential
+// (common.RegistryHost-keyed) on its one retry after an ErrAuthRequired,
+// via Trivy's documented TRIVY_USERNAME/TRIVY_PASSWORD env vars (single-
+// registry basic auth for one invocation, not a docker-config-wide
+// setting).
+func runTrivyCLI(repoName, tag, digest, username, password string) (*TrivyReport, error) {
 	target := repoName
 	switch {
 	case tag != "":
@@ -153,6 +184,9 @@ func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	defer trivyMu.Unlock()
 
 	cmd := exec.Command("trivy", args...)
+	if username != "" || password != "" {
+		cmd.Env = append(os.Environ(), "TRIVY_USERNAME="+username, "TRIVY_PASSWORD="+password)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -160,6 +194,9 @@ func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 		stderrText := strings.TrimSpace(stderr.String())
 		if isImageNotFound(stderrText) {
 			return nil, fmt.Errorf("%w: %s", ErrImageNotFound, stderrText)
+		}
+		if isAuthDenied(stderrText) {
+			return nil, fmt.Errorf("%w: %s", ErrAuthRequired, stderrText)
 		}
 		return nil, fmt.Errorf("trivy scan failed: %v: %s", err, stderrText)
 	}
