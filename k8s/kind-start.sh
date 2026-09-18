@@ -25,28 +25,26 @@ if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
   exit 1
 fi
 
-# 1 control-plane (tainted, no workloads) + 1 worker -- secscan-kind.yaml's
-# StatefulSet replica counts assume exactly one schedulable node.
+# Single node, control-plane only. No taints override needed -- KIND
+# itself automatically removes the control-plane NoSchedule taint on
+# cluster creation whenever the cluster has only one node (confirmed
+# live: an explicit `taints: []` override actually broke cluster
+# creation, since KIND's own untaint step then failed trying to remove a
+# taint that was never applied). secscan-kind.yaml's StatefulSet replica
+# counts already assume exactly one schedulable node, so no change
+# needed there.
 cat > "${SCRIPT_DIR}/${KIND_CONFIG}" <<'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    kubeadmConfigPatches:
-      - |
-        kind: InitConfiguration
-        nodeRegistration:
-          taints:
-            - key: node-role.kubernetes.io/control-plane
-              effect: NoSchedule
-  - role: worker
     extraPortMappings:
       - containerPort: 2790
         hostPort: 2790
         protocol: TCP
 EOF
 
-echo "Creating KIND cluster '${CLUSTER_NAME}' (1 control-plane + 1 worker)..."
+echo "Creating KIND cluster '${CLUSTER_NAME}' (1 node)..."
 kind create cluster --name "${CLUSTER_NAME}" --config "${SCRIPT_DIR}/${KIND_CONFIG}"
 
 echo "Waiting for nodes to be Ready..."

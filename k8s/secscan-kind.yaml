@@ -3,9 +3,10 @@
 #
 # Every DaemonSet from secscan-local.yaml becomes a StatefulSet with
 # podAntiAffinity (one pod per node, by hostname) + volumeClaimTemplates.
-# replicas:1 below matches kind-start.sh's 1 control-plane (tainted
-# NoSchedule) + 1 worker cluster -- a strict one-per-node anti-affinity
-# StatefulSet can't schedule more replicas than schedulable nodes.
+# replicas:1 below matches kind-start.sh's single-node cluster (its
+# default control-plane NoSchedule taint is explicitly removed there so
+# it's schedulable) -- a strict one-per-node anti-affinity StatefulSet
+# can't schedule more replicas than schedulable nodes.
 # secscan-scanner keeps its emptyDir (no durable state, identical across
 # all four modes, PRD §16).
 

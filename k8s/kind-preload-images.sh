@@ -6,10 +6,11 @@ set -e
 # project's own 6, plus its sibling ../probler (16) and ../l8erp (6)
 # projects' own images -- confirmed via `docker images` to already be
 # built locally on this host, never needing a registry pull at all) into
-# tarballs, then `docker cp`s them straight into the KIND worker node's
-# filesystem (KIND nodes are themselves plain docker containers, so this
-# needs no cluster config/restart). secscan-kind.yaml hostPath-mounts that
-# same node path into secscan-scanner, and trivy.go's runTrivyCLI scans a
+# tarballs, then `docker cp`s them straight into the KIND node's
+# filesystem (single-node cluster, k8s/kind-start.sh -- KIND nodes are
+# themselves plain docker containers, so this needs no cluster config/
+# restart). secscan-kind.yaml hostPath-mounts that same node path into
+# secscan-scanner, and trivy.go's runTrivyCLI scans a
 # tarball via `--input` when one exists there for the target image,
 # instead of Trivy's own containerd/remote image-src chain.
 #
@@ -24,7 +25,9 @@ set -e
 # containerd entirely.
 
 CLUSTER_NAME="secscan"
-WORKER_NODE="${CLUSTER_NAME}-worker"
+# Single-node cluster (k8s/kind-start.sh) -- control-plane is the only
+# node, so it's also the one secscan-scanner's pod actually schedules on.
+WORKER_NODE="${CLUSTER_NAME}-control-plane"
 NODE_DIR="/trivy-images"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT

@@ -38,8 +38,8 @@ github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be h1:NTONXy71PNP7rfkkK
 github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be/go.mod h1:boBPUwEYgpyyTcZcqqjDDYgqkjemEO7iR8kdOwkS1S0=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 h1:2eDzFMHV/qPqgvz5Kr72q+FStRX9+JSqpX1Ay1cQIAs=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2/go.mod h1:yCkCd5JQKqKG+dr6h0HYDiLvNAB8uLUUOdWApnWUw24=
-github.com/saichler/l8services v0.0.0-20260915143516-f45bed6c6bc7 h1:Tvs95qi6bfEvBIUruaTe9vfJxXLpCfw0WNVIOpi8W8w=
-github.com/saichler/l8services v0.0.0-20260915143516-f45bed6c6bc7/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
+github.com/saichler/l8services v0.0.0-20260918211310-2fa8d2ba2ae6 h1:7f+/yzAPgLcTpF9cq1irO+jL0h1X/9CEofT0RqgtpfA=
+github.com/saichler/l8services v0.0.0-20260918211310-2fa8d2ba2ae6/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
 github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2 h1:c35ELO15MmBXO4FjDNzo+gG5qA/alTSui7RvizkI2jw=
 github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89 h1:G3cHYkdzEoJb5Btsoz629zFoYQSmTzCI0EIplwXxZ08=
@@ -50,8 +50,8 @@ github.com/saichler/l8utils v0.0.0-20260916142056-ae48281da46d h1:ZSGlkxZzTbjJjs
 github.com/saichler/l8utils v0.0.0-20260916142056-ae48281da46d/go.mod h1:nKdvYAEGLyHfxPg09oR6OfkJ0SniSbPb+Zi6wr/D5LU=
 github.com/saichler/l8web v0.0.0-20260915165340-74e4cde904ea h1:RByinb06uiiAcf7hmGQh4+rkMSmIIrgt4Lxx7FNS6g0=
 github.com/saichler/l8web v0.0.0-20260915165340-74e4cde904ea/go.mod h1:r2j6dgKs41L+dwaSh3hQ9OJN0RnQP0C8NWxAbAn+c8c=
-github.com/saichler/probler v0.0.0-20260523194022-a99896a9e09c h1:zrcj7qa4/CJJUOJP6N6l03OUHL7g4vRCa42DKXSIWGg=
-github.com/saichler/probler v0.0.0-20260523194022-a99896a9e09c/go.mod h1:3SmozVci2+FIzlQkm7PuXcUxfG8Qjc+Nml1/0AJPQrc=
+github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757 h1:hiUdbByYBafQsyoZZz2T6KGfbBMjukf7HEy0aiF/YxA=
+github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757/go.mod h1:3SmozVci2+FIzlQkm7PuXcUxfG8Qjc+Nml1/0AJPQrc=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
