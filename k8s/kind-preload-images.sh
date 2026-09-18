@@ -61,6 +61,13 @@ IMAGES=(
   saichler/erp-maint:latest
   saichler/erp:latest
   saichler/erp-log-agent:latest
+  # Private-registry test image -- unlike everything else in this list,
+  # this one does NOT already exist locally by default. Pull it first with
+  # authenticated docker (Trivy's own "remote" registry call has no access
+  # to this private GCR repo, which is exactly what this preload step
+  # works around): `gcloud auth configure-docker gcr.io && docker pull
+  # gcr.io/devsentient-infra/custom/hnb/stack/cilium/third-party/quay.io/cilium/cilium:v1.19.4_shak-20260529-v-r0`
+  gcr.io/devsentient-infra/custom/hnb/stack/cilium/third-party/quay.io/cilium/cilium:v1.19.4_shak-20260529-v-r0
 )
 
 docker exec "${WORKER_NODE}" mkdir -p "${NODE_DIR}"
