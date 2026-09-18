@@ -243,6 +243,16 @@ window.SecScanGroupDetail_M = (function() {
 
         const container = body.querySelector('#secscan-m-group-refs-container');
         if (container) {
+            // Capturing phase, not bubbling (same fix/reasoning as
+            // desktop's group-detail.js): the checkbox/delete-ref/
+            // provide-creds buttons/inputs each carry their own inline
+            // onclick="event.stopPropagation()" (to keep a tap on them
+            // from also triggering the card's own onCardClick) -- a
+            // bubble-phase listener on this container fires AFTER that
+            // inline handler already ran and stopped propagation, so it
+            // would never see the click at all. Capturing runs on the way
+            // DOWN to the target, before any of that -- confirmed live,
+            // this was a real bug (provide-creds' popup never opened).
             container.addEventListener('click', function(e) {
                 if (e.target && e.target.classList.contains('secscan-m-ref-select')) {
                     e.stopPropagation();
@@ -265,7 +275,7 @@ window.SecScanGroupDetail_M = (function() {
                         if (ref) openAuthPopup(ref, group, body);
                     });
                 }
-            });
+            }, true);
         }
     }
 
