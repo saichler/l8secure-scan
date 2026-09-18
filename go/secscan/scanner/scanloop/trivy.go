@@ -57,7 +57,12 @@ var ErrImageNotFound = errors.New("image not found")
 // output (docker.io + registry v2 API error bodies) for a nonexistent
 // repo/tag/digest -- deliberately excludes auth-only failures ("denied",
 // "unauthorized") since those mean the image may well exist, just
-// inaccessible with these credentials, which is a real FAILED, not MISSING.
+// inaccessible with these credentials, which is AUTH_REQUIRED, not
+// MISSING. "unable to find the specified image" is ALSO the generic
+// outer-wrapper text Trivy emits for every image-src chain failure
+// (containerd AND remote), auth-denied included -- confirmed live
+// against a real private-registry DENIED response, which is exactly why
+// isAuthDenied is checked before isImageNotFound below, not the reverse.
 var imageNotFoundMarkers = []string{
 	"manifest unknown",
 	"manifest_unknown",
@@ -192,11 +197,20 @@ func runTrivyCLI(repoName, tag, digest, username, password string) (*TrivyReport
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		stderrText := strings.TrimSpace(stderr.String())
-		if isImageNotFound(stderrText) {
-			return nil, fmt.Errorf("%w: %s", ErrImageNotFound, stderrText)
-		}
+		// isAuthDenied checked BEFORE isImageNotFound -- confirmed live
+		// against a real private GCR image: Trivy wraps every image-src
+		// chain failure (containerd AND remote) in the same generic
+		// "unable to find the specified image ... in [\"containerd\"
+		// \"remote\"]" outer text regardless of the actual cause, so that
+		// phrase alone (one of imageNotFoundMarkers) is present even for
+		// a genuine registry auth DENIAL, not just a truly nonexistent
+		// image. "denied"/"unauthorized" are a much more specific signal
+		// straight from the registry's own error body and must win.
 		if isAuthDenied(stderrText) {
 			return nil, fmt.Errorf("%w: %s", ErrAuthRequired, stderrText)
+		}
+		if isImageNotFound(stderrText) {
+			return nil, fmt.Errorf("%w: %s", ErrImageNotFound, stderrText)
 		}
 		return nil, fmt.Errorf("trivy scan failed: %v: %s", err, stderrText)
 	}
