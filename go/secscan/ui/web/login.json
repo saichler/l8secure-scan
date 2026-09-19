@@ -2,7 +2,7 @@
     "login": {
         "appTitle": "Vulnerabilities View",
         "appDescription": "Container Image Vulnerability Management",
-        "logo": "/l8ui/images/logo.gif",
+        "logo": "/l8ui/images/logo.svg",
         "authEndpoint": "/auth",
         "redirectUrl": "/app.html",
         "showRememberMe": true,
