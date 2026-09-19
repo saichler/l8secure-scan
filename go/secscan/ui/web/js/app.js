@@ -159,6 +159,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     // unresolvable checkAndPrompt) never ran at all -- an empty picker
     // AND empty content in every section, from one root cause.
     if (typeof SecScanCustomerPicker !== 'undefined') {
+        // Customers (opsadmin-only, intentionally not customer-scoped --
+        // secscan-init.js) registers unconditionally, before the picker
+        // gate below -- otherwise, with zero customers seeded, the picker
+        // has nothing to select, checkAndPrompt's callback never fires,
+        // and Customer Management -- the one place opsadmin could create
+        // the first customer -- never initializes either. A real,
+        // confirmed dead end (opsadmin locked out with no way to recover
+        // short of editing the database directly), not just cosmetic.
+        if (typeof initializeSecScanCustomersModule === 'function') {
+            initializeSecScanCustomersModule();
+        }
         SecScanCustomerPicker.checkAndPrompt(function() {
             if (typeof initializeSecScanModules === 'function') {
                 initializeSecScanModules();

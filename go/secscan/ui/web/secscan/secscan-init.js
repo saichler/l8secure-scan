@@ -16,6 +16,30 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     // every fetch the customer picker and every module's table made.
     // app.js calls window.initializeSecScanModules() itself, from inside
     // its own already-config-loaded, already-customer-gated flow.
+    // Customers is opsadmin-only and intentionally NOT customer-scoped
+    // (secscan-config.js) -- split out from initializeSecScanModules so
+    // app.js can register it BEFORE a customer is picked, not just after.
+    // Real, confirmed bug otherwise: with zero customers seeded, the
+    // picker has nothing to select, SecScanCustomerPicker.checkAndPrompt's
+    // callback (which every OTHER module's registration waited behind)
+    // never fires, and Customer Management -- the one place opsadmin
+    // could actually create the first customer -- never initializes
+    // either. A dead end with no way out except editing the database
+    // directly. Safe to call twice (idempotent, same as every other
+    // Layer8DModuleFactory.create() call already sharing the 'SecScan'
+    // namespace) -- initializeSecScanModules() below no longer calls it
+    // a second time, so in practice it only ever runs once anyway.
+    window.initializeSecScanCustomersModule = function() {
+        Layer8DModuleFactory.create({
+            namespace: 'SecScan',
+            defaultModule: 'customers',
+            defaultService: 'customers',
+            sectionSelector: 'customers',
+            initializerName: 'initializeSecScanCustomers',
+            requiredNamespaces: ['SecScanAdmin']
+        });
+    };
+
     window.initializeSecScanModules = function() {
     // One Layer8ModuleConfigFactory namespace ('SecScan', secscan-config.js)
     // holds all four modules' modules{}/submodules[] config; one
@@ -24,6 +48,15 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     // own defaultModule (ModuleInitSectionSelector). All calls share the
     // same 'SecScan' namespace for CRUD/forms facade (harmless to attach
     // repeatedly) but validate only their own submodule.
+    //
+    // Images/Categories/Scan History all use baseWhereClause: customerScoped
+    // (secscan-config.js) -- a falsy baseWhereClause is dropped entirely by
+    // the generic query builder (layer8d-table-data.js), not treated as
+    // "match nothing", so these three genuinely must stay gated behind a
+    // picked customer (app.js) or they'd show every customer's data
+    // unfiltered. Customers itself has no such scoping and is registered
+    // separately, unconditionally, by initializeSecScanCustomersModule
+    // above.
     Layer8DModuleFactory.create({
         namespace: 'SecScan',
         defaultModule: 'images',
@@ -49,15 +82,6 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
         sectionSelector: 'scanhistory',
         initializerName: 'initializeSecScanScanHistory',
         requiredNamespaces: ['SecScanVuln']
-    });
-
-    Layer8DModuleFactory.create({
-        namespace: 'SecScan',
-        defaultModule: 'customers',
-        defaultService: 'customers',
-        sectionSelector: 'customers',
-        initializerName: 'initializeSecScanCustomers',
-        requiredNamespaces: ['SecScanAdmin']
     });
 
     // Custom CRUD handlers (SpecialCases pattern): capture the generic
