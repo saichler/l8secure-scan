@@ -29,7 +29,7 @@ require (
 	github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a // indirect
 	github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be // indirect
 	github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 // indirect
-	github.com/saichler/l8services v0.0.0-20260918225843-a3657479622c // indirect
+	github.com/saichler/l8services v0.0.0-20260919200933-6f42bea5de04 // indirect
 	github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	golang.org/x/sync v0.22.0 // indirect
