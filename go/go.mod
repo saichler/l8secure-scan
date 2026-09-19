@@ -6,8 +6,8 @@ require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/lib/pq v1.12.3
 	github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1
-	github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2
-	github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc
+	github.com/saichler/l8common v0.0.0-20260919150344-9767ebf974cc
+	github.com/saichler/l8events v0.0.0-20260919145758-a04b74d9c9d9
 	github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
 	github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2
 	github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
@@ -29,7 +29,7 @@ require (
 	github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a // indirect
 	github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be // indirect
 	github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 // indirect
-	github.com/saichler/l8services v0.0.0-20260918211310-2fa8d2ba2ae6 // indirect
+	github.com/saichler/l8services v0.0.0-20260918225843-a3657479622c // indirect
 	github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	golang.org/x/sync v0.22.0 // indirect

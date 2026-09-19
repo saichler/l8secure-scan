@@ -24,10 +24,10 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1 h1:UXSsjS1PyKNaXnOJsqNgXZdgB0nFuVazK04eT7xfS80=
 github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1/go.mod h1:ZK1m4Zqy9WhGVZXl5znHTr7+/r19rOytqwBqhH02Ui8=
-github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2 h1:Oz/gSnKfALa4ftC5ewSuFlnntsiNkPkJxbpqEFY4JS4=
-github.com/saichler/l8common v0.0.0-20260808115023-ffe7a15be8a2/go.mod h1:O7WSHyHK4HPPkolxZn41hxzA0ufOTo6jDcTqL7KRS8k=
-github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc h1:AVzIBv/vJneOoEhqHSKDyuMyxVF6rVFD/tozCtdkClk=
-github.com/saichler/l8events v0.0.0-20260809121641-d557f6e2fcbc/go.mod h1:I4Q8hqG5md+SNPUj4In9vSUlyqQERVQuxA+s6hCas54=
+github.com/saichler/l8common v0.0.0-20260919150344-9767ebf974cc h1:++Nke2Qz9Zs930o5RceQWoJkhm7qTJiX/psauraWYvk=
+github.com/saichler/l8common v0.0.0-20260919150344-9767ebf974cc/go.mod h1:O7WSHyHK4HPPkolxZn41hxzA0ufOTo6jDcTqL7KRS8k=
+github.com/saichler/l8events v0.0.0-20260919145758-a04b74d9c9d9 h1:ap/HG7P0IK7BAoewL00iHtMoa7QAOevaS8yB8wSb36k=
+github.com/saichler/l8events v0.0.0-20260919145758-a04b74d9c9d9/go.mod h1:I4Q8hqG5md+SNPUj4In9vSUlyqQERVQuxA+s6hCas54=
 github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f h1:Nu6RgBrk2H9tSXSRCsahJb/f8hrMrsL6zfYuSA5WutU=
 github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f/go.mod h1:EhJL938t2Xp4gOS6qw267xa5hNuumSVUi1zhWzTxZk8=
 github.com/saichler/l8orm v0.0.0-20260916142109-e7f0284c95ee h1:B53gbdJ+bJnTEq8vpfDFaHxVFWVwjEvGKtQ3jlTQa4Q=
@@ -38,8 +38,8 @@ github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be h1:NTONXy71PNP7rfkkK
 github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be/go.mod h1:boBPUwEYgpyyTcZcqqjDDYgqkjemEO7iR8kdOwkS1S0=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 h1:2eDzFMHV/qPqgvz5Kr72q+FStRX9+JSqpX1Ay1cQIAs=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2/go.mod h1:yCkCd5JQKqKG+dr6h0HYDiLvNAB8uLUUOdWApnWUw24=
-github.com/saichler/l8services v0.0.0-20260918211310-2fa8d2ba2ae6 h1:7f+/yzAPgLcTpF9cq1irO+jL0h1X/9CEofT0RqgtpfA=
-github.com/saichler/l8services v0.0.0-20260918211310-2fa8d2ba2ae6/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
+github.com/saichler/l8services v0.0.0-20260918225843-a3657479622c h1:jQkbQWWVUZmL3fFriso/AVBTnppl4Vum30kxAH3b7p8=
+github.com/saichler/l8services v0.0.0-20260918225843-a3657479622c/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
 github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2 h1:c35ELO15MmBXO4FjDNzo+gG5qA/alTSui7RvizkI2jw=
 github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89 h1:G3cHYkdzEoJb5Btsoz629zFoYQSmTzCI0EIplwXxZ08=
