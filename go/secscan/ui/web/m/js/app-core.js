@@ -44,13 +44,20 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
             // four stay in sync with one config value.
             const logo = Layer8MConfig.getLogo();
             const favicon = document.getElementById('app-favicon');
-            if (favicon) favicon.href = logo;
             const touchIcon = document.getElementById('app-touch-icon');
-            if (touchIcon) touchIcon.href = logo;
             const headerLogo = document.getElementById('app-header-logo');
-            if (headerLogo) headerLogo.src = logo;
             const sidebarLogo = document.getElementById('app-sidebar-logo');
-            if (sidebarLogo) sidebarLogo.src = logo;
+            if (typeof Layer8DLogo !== 'undefined') {
+                if (favicon) Layer8DLogo.register(favicon, logo, 'href');
+                if (touchIcon) Layer8DLogo.register(touchIcon, logo, 'href');
+                if (headerLogo) Layer8DLogo.register(headerLogo, logo, 'src');
+                if (sidebarLogo) Layer8DLogo.register(sidebarLogo, logo, 'src');
+            } else {
+                if (favicon) favicon.href = logo;
+                if (touchIcon) touchIcon.href = logo;
+                if (headerLogo) headerLogo.src = logo;
+                if (sidebarLogo) sidebarLogo.src = logo;
+            }
 
             // Connect real-time WebSocket for live data updates -- reuses
             // the same desktop Layer8DWebSocket already loaded here, never

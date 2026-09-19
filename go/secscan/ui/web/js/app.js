@@ -75,6 +75,20 @@ function logout() {
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async function() {
+    // Layer8DThemeSwitcher.init() was never called anywhere on this page
+    // (only the login page called it) -- data-theme is an attribute on
+    // <html>, which does not survive the full page navigation from login
+    // to app.html, so the saved/default theme was never actually applied
+    // here at all, regardless of what was picked on the login page.
+    // Run this before the logo is applied below: Layer8DLogo reads the
+    // active theme's CSS vars, so data-theme must already be set.
+    if (typeof Layer8DThemeSwitcher !== 'undefined') {
+        if (!localStorage.getItem('layer8d-theme')) {
+            localStorage.setItem('layer8d-theme', 'noir');
+        }
+        Layer8DThemeSwitcher.init();
+    }
+
     // Load app configuration first
     if (typeof Layer8DConfig !== 'undefined') {
         await Layer8DConfig.load();
@@ -82,24 +96,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         // same value the login page itself already reads, applied here
         // to the favicon and header logo so both stay in sync with one
         // config value instead of two hardcoded, independently-editable
-        // <img>/<link> paths.
+        // <img>/<link> paths. Layer8DLogo recolors the bundled default
+        // logo.svg to match the active theme; any other configured logo
+        // is applied as a plain URL.
         const logo = Layer8DConfig.getLogo();
         const favicon = document.getElementById('app-favicon');
-        if (favicon) favicon.href = logo;
         const headerLogo = document.getElementById('app-header-logo');
-        if (headerLogo) headerLogo.src = logo;
-    }
-
-    // Layer8DThemeSwitcher.init() was never called anywhere on this page
-    // (only the login page called it) -- data-theme is an attribute on
-    // <html>, which does not survive the full page navigation from login
-    // to app.html, so the saved/default theme was never actually applied
-    // here at all, regardless of what was picked on the login page.
-    if (typeof Layer8DThemeSwitcher !== 'undefined') {
-        if (!localStorage.getItem('layer8d-theme')) {
-            localStorage.setItem('layer8d-theme', 'noir');
+        if (typeof Layer8DLogo !== 'undefined') {
+            if (favicon) Layer8DLogo.register(favicon, logo, 'href');
+            if (headerLogo) Layer8DLogo.register(headerLogo, logo, 'src');
+        } else {
+            if (favicon) favicon.href = logo;
+            if (headerLogo) headerLogo.src = logo;
         }
-        Layer8DThemeSwitcher.init();
     }
 
     // Check if bearer token exists (user is logged in)
