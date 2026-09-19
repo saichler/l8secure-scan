@@ -59,6 +59,19 @@ window.SecScanCustomerPicker = (function() {
             content: html,
             size: 'small',
             showFooter: false,
+            // Dismissing without picking a customer (×, clicking outside,
+            // or Escape -- confirmed live: all three previously left the
+            // reference picker's own dropdown overlay in the DOM after the
+            // popup itself closed, an invisible full-page click-blocker
+            // that made the entire app unusable until reload, since
+            // Layer8DPopup's own close() only tears down its own content,
+            // never a picker attached inside it) must still let the user
+            // navigate elsewhere, e.g. to Customers to create the first
+            // one -- there being nothing to pick yet is the normal empty
+            // state on a brand new deployment, not a dead end.
+            onCancel: function() {
+                Layer8DReferencePicker.close();
+            },
             onShow: function(body) {
                 const input = body.querySelector('#secscan-customer-picker-input');
                 Layer8DReferencePicker.attach(input, {
