@@ -38,6 +38,20 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 
             await Layer8MConfig.load();
 
+            // Project-configurable app logo (login.json's login.logo) --
+            // same value the login page and desktop app shell also read,
+            // applied here to favicon/touch-icon/header/sidebar so all
+            // four stay in sync with one config value.
+            const logo = Layer8MConfig.getLogo();
+            const favicon = document.getElementById('app-favicon');
+            if (favicon) favicon.href = logo;
+            const touchIcon = document.getElementById('app-touch-icon');
+            if (touchIcon) touchIcon.href = logo;
+            const headerLogo = document.getElementById('app-header-logo');
+            if (headerLogo) headerLogo.src = logo;
+            const sidebarLogo = document.getElementById('app-sidebar-logo');
+            if (sidebarLogo) sidebarLogo.src = logo;
+
             // Connect real-time WebSocket for live data updates -- reuses
             // the same desktop Layer8DWebSocket already loaded here, never
             // previously initialized on mobile

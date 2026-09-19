@@ -78,6 +78,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Load app configuration first
     if (typeof Layer8DConfig !== 'undefined') {
         await Layer8DConfig.load();
+        // Project-configurable app logo (login.json's login.logo) --
+        // same value the login page itself already reads, applied here
+        // to the favicon and header logo so both stay in sync with one
+        // config value instead of two hardcoded, independently-editable
+        // <img>/<link> paths.
+        const logo = Layer8DConfig.getLogo();
+        const favicon = document.getElementById('app-favicon');
+        if (favicon) favicon.href = logo;
+        const headerLogo = document.getElementById('app-header-logo');
+        if (headerLogo) headerLogo.src = logo;
     }
 
     // Layer8DThemeSwitcher.init() was never called anywhere on this page
