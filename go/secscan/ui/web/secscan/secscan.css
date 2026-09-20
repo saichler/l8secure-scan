@@ -238,3 +238,18 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
 #images-groups-table-container th[data-column="imageRefCount"] {
     width: 5.36%;
 }
+
+/* Add Images: the "Load from file" row above the textarea. The file input
+   itself is hidden (the button proxies a click to it) -- a raw file input
+   renders as unstyleable browser chrome that matches nothing else here. */
+.secscan-add-images-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.secscan-add-images-file-note {
+    font-size: 12px;
+    color: var(--layer8d-text-medium);
+}

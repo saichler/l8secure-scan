@@ -326,3 +326,21 @@ html, body {
 }
 
 .secscan-m-add-images-summary ul { padding-left: 18px; margin: 6px 0 12px; font-size: 13px; }
+
+/* Add Images "Load from file" row, mobile twin of secscan.css's
+   .secscan-add-images-file-row. Wraps rather than sitting in one line --
+   the note can name a long filename and there is no room beside the
+   button on a phone. */
+.secscan-m-add-images-file-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.secscan-m-add-images-file-note {
+    font-size: 11px;
+    color: var(--layer8d-text-medium);
+    word-break: break-all;
+}
