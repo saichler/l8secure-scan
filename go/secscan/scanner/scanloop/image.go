@@ -38,6 +38,11 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 			return authRequiredImage(ref, scommon.RegistryHost(ref.RepoName), vnic)
 		}
 		if errors.Is(err, ErrImageNotFound) {
+			// Before writing the repo off: the tag may be gone while the
+			// repo's "latest" is alive, in which case add that so the repo
+			// keeps coverage (latest_fallback.go). Best-effort -- the ref
+			// is marked MISSING either way.
+			ensureLatestRef(ref, vnic)
 			return missingImage(ref, err.Error(), vnic)
 		}
 		return failImage(ref, err.Error(), vnic)
