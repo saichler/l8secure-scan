@@ -74,7 +74,7 @@ window.SecScanGroupDetail_M = (function() {
         const html = headerHtml(group) +
             '<div class="secscan-m-group-toolbar">' +
             '<label class="secscan-scan-all-pending-label">' +
-            '<input type="checkbox" id="secscan-m-scan-all-pending-checkbox"> Scan all pending images' +
+            '<input type="checkbox" id="secscan-m-scan-all-pending-checkbox"> Scan all pending &amp; auth-blocked' +
             '</label>' +
             '<button class="mobile-popup-btn mobile-popup-btn-save" id="secscan-m-scan-selected-btn" disabled>Scan Selected</button>' +
             '</div>' +
@@ -161,10 +161,15 @@ window.SecScanGroupDetail_M = (function() {
     // selection/Dashboard scan button at all, scanning only ever happens
     // from inside a specific group's own popup here, so "all pending"
     // means "all pending in this group").
+    //
+    // PENDING (1) and AUTH_REQUIRED (6), matching desktop
+    // dashboard-page.js: an auth-blocked ref wants sweeping up after the
+    // credentials encripted/apply-registry-credentials.sh installs are
+    // widened, and it has no other one-click re-scan path now that the
+    // per-row "Provide Credentials" action is gone.
     function fetchPendingImageRefs(groupId) {
-        const query = "select * from ImageRef where imageGroupId='" + groupId + "' and scanStatus=1 limit 999 page 0";
-        return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ImageRef?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
-            .then(function(data) { return (data && data.list) || []; });
+        return Promise.all([fetchGroupStatusRefs(groupId, 1), fetchGroupStatusRefs(groupId, 6)])
+            .then(function(results) { return results[0].concat(results[1]); });
     }
 
     function attachScanAllPending(body, group) {
@@ -334,10 +339,13 @@ window.SecScanGroupDetail_M = (function() {
     // aggregate failedImages count, so the report is built by re-fetching
     // the actual ImageRefs (scanStatus FAILED/MISSING + scanError, already
     // persisted per-image by scanloop.go), scoped to this group and
-    // filtered to the ids this specific job scanned. Two plain equality
-    // queries (scanStatus=4, scanStatus=5), not one OR/IN query -- this
-    // project's L8QL only supports simple AND-chained equality (verified
-    // elsewhere: a LIKE query was rejected outright).
+    // filtered to the ids this specific job scanned. Plain equality
+    // queries (scanStatus=4, scanStatus=5, scanStatus=6), not one OR/IN
+    // query -- this project's L8QL only supports simple AND-chained
+    // equality (verified elsewhere: a LIKE query was rejected outright).
+    //
+    // Also the single fetch behind fetchPendingImageRefs above (same query
+    // shape, only the status differs -- no second copy of it).
     function fetchGroupStatusRefs(groupId, status) {
         const query = "select * from ImageRef where imageGroupId='" + groupId + "' and scanStatus=" + status + " limit 999 page 0";
         return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ImageRef?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
@@ -345,14 +353,17 @@ window.SecScanGroupDetail_M = (function() {
     }
 
     function showScanFailureReport(groupId, jobRefIds) {
-        Promise.all([fetchGroupStatusRefs(groupId, 4), fetchGroupStatusRefs(groupId, 5)])
+        Promise.all([fetchGroupStatusRefs(groupId, 4), fetchGroupStatusRefs(groupId, 5), fetchGroupStatusRefs(groupId, 6)])
             .then(function(results) {
                 const SCAN_STATUS_MISSING = 5;
-                const refs = results[0].concat(results[1]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
+                const SCAN_STATUS_AUTH_REQUIRED = 6;
+                const refs = results[0].concat(results[1], results[2]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
                 if (refs.length === 0) return;
                 const items = refs.map(function(r) {
                     const label = (r.repoName || '') + (r.tag ? ':' + r.tag : '');
-                    const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing' : 'Failed';
+                    const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing'
+                        : r.scanStatus === SCAN_STATUS_AUTH_REQUIRED ? 'Auth Required'
+                        : 'Failed';
                     return '<div class="secscan-m-scan-failure-item">' +
                         '<div class="secscan-m-scan-failure-title">' + Layer8MUtils.escapeHtml(label) + ' &mdash; ' + statusText + '</div>' +
                         '<div class="secscan-m-scan-failure-reason">' + Layer8MUtils.escapeHtml(r.scanError || '(no reason recorded)') + '</div>' +

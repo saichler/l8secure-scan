@@ -202,17 +202,16 @@ window.SecScanDashboardKpis = (function() {
     // would look like from a fresh 're-select all' query at uncheck time.
     let scanAllPendingIds = null;
 
+    // PENDING (1) and AUTH_REQUIRED (6). An auth-blocked ref is exactly
+    // what wants sweeping up after widening the credentials
+    // encripted/apply-registry-credentials.sh installs, and since the
+    // per-row "Provide Credentials" action is gone it has no other one-click
+    // re-scan path -- without 6 here it could only be re-scanned by ticking
+    // it by hand in a Group Detail popup. Two queries rather than one
+    // OR/IN, per the L8QL limitation fetchStatusRefs documents below.
     function fetchPendingImageRefs(customerId) {
-        const q = encodeURIComponent(JSON.stringify({
-            // ScanStatus_PENDING = 1 (bare integer, never a quoted name).
-            // limit is capped at 999 -- 1000 itself is rejected ("Invalid
-            // limit: Limit is limited up to 1000 elements", a real 400
-            // caught only by actually running this against a live server).
-            text: "select * from ImageRef where customerId='" + customerId + "' and scanStatus=1 limit 999 page 0"
-        }));
-        return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImageRef?body=' + q))
-            .then(function(r) { return r ? r.json() : null; })
-            .then(function(data) { return (data && data.list) || []; });
+        return Promise.all([fetchStatusRefs(customerId, 1), fetchStatusRefs(customerId, 6)])
+            .then(function(results) { return results[0].concat(results[1]); });
     }
 
     function onScanAllPendingChange(e) {
@@ -330,11 +329,18 @@ window.SecScanDashboardKpis = (function() {
     // the real reason on each individual ImageRef (scanStatus FAILED/MISSING
     // + scanError), so the report is built by re-fetching those specific
     // ImageRefs, not from the job record itself. Two plain equality queries
-    // (scanStatus=4, scanStatus=5) instead of one OR/IN query -- this
+    // (scanStatus=4, scanStatus=5, scanStatus=6) instead of one OR/IN
+    // query -- this
     // project's L8QL only supports simple AND-chained equality conditions
     // (verified: a LIKE query was rejected outright, "Cannot find
     // comparator operation"), so this reuses the same proven-safe shape as
     // fetchPendingImageRefs above instead of guessing at OR/IN support.
+    // Also the single fetch behind fetchPendingImageRefs above (same query
+    // shape, only the status differs -- no second copy of it). status is a
+    // bare integer, never a quoted enum name. limit is capped at 999 --
+    // 1000 itself is rejected ("Invalid limit: Limit is limited up to 1000
+    // elements", a real 400 caught only by running this against a live
+    // server).
     function fetchStatusRefs(customerId, status) {
         const q = encodeURIComponent(JSON.stringify({
             text: "select * from ImageRef where customerId='" + customerId + "' and scanStatus=" + status + " limit 999 page 0"
@@ -347,9 +353,12 @@ window.SecScanDashboardKpis = (function() {
     function showScanFailureReport(refs) {
         if (!refs || refs.length === 0) return;
         const SCAN_STATUS_MISSING = 5;
+        const SCAN_STATUS_AUTH_REQUIRED = 6;
         const rows = refs.map(function(r) {
             const label = (r.repoName || '') + (r.tag ? ':' + r.tag : '');
-            const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing' : 'Failed';
+            const statusText = r.scanStatus === SCAN_STATUS_MISSING ? 'Missing'
+                : r.scanStatus === SCAN_STATUS_AUTH_REQUIRED ? 'Auth Required'
+                : 'Failed';
             return '<tr><td>' + Layer8DUtils.escapeHtml(label) + '</td><td>' + statusText + '</td><td>' +
                 '<div class="secscan-scan-failure-reason">' + Layer8DUtils.escapeHtml(r.scanError || '(no reason recorded)') + '</div></td></tr>';
         }).join('');
@@ -386,9 +395,9 @@ window.SecScanDashboardKpis = (function() {
                     const customerId = SecScan.getCurrentCustomerId();
                     const jobRefIds = new Set(job.imageRefIds || []);
                     if (customerId) {
-                        Promise.all([fetchStatusRefs(customerId, 4), fetchStatusRefs(customerId, 5)])
+                        Promise.all([fetchStatusRefs(customerId, 4), fetchStatusRefs(customerId, 5), fetchStatusRefs(customerId, 6)])
                             .then(function(results) {
-                                const failed = results[0].concat(results[1]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
+                                const failed = results[0].concat(results[1], results[2]).filter(function(r) { return jobRefIds.has(r.imageRefId); });
                                 showScanFailureReport(failed);
                             })
                             .catch(function(err) {
@@ -464,7 +473,7 @@ window.SecScanDashboardKpis = (function() {
             '<div class="secscan-dashboard-toolbar">' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-add-images-btn">Add Images</button>' +
             '<label class="secscan-scan-all-pending-label">' +
-            '<input type="checkbox" id="secscan-scan-all-pending-checkbox"> Scan all pending images' +
+            '<input type="checkbox" id="secscan-scan-all-pending-checkbox"> Scan all pending &amp; auth-blocked images' +
             '</label>' +
             '<button class="layer8d-btn layer8d-btn-primary layer8d-btn-small" id="secscan-scan-images-btn" disabled>Scan Images</button>' +
             '</div>' +
