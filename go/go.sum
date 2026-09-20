@@ -30,8 +30,8 @@ github.com/saichler/l8events v0.0.0-20260920032941-9a68815e426a h1:ZID35z6VOTm3g
 github.com/saichler/l8events v0.0.0-20260920032941-9a68815e426a/go.mod h1:I4Q8hqG5md+SNPUj4In9vSUlyqQERVQuxA+s6hCas54=
 github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f h1:Nu6RgBrk2H9tSXSRCsahJb/f8hrMrsL6zfYuSA5WutU=
 github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f/go.mod h1:EhJL938t2Xp4gOS6qw267xa5hNuumSVUi1zhWzTxZk8=
-github.com/saichler/l8notify v0.0.0-20260920033004-b2eeb80a0754 h1:79mDr1cKdVhAaJW1B49LBWjQJZ4s7YWfbXC4Xum7mGQ=
-github.com/saichler/l8notify v0.0.0-20260920033004-b2eeb80a0754/go.mod h1:L7K9krej6ZIA24Vy8sGaIQivJdO6m9AlWJIBISa2LKc=
+github.com/saichler/l8notify v0.0.0-20260920040606-60469cb52176 h1:00qFl7O/kMYZHO8G+FiiNHMIGGK44yzW0NhtO3s/cms=
+github.com/saichler/l8notify v0.0.0-20260920040606-60469cb52176/go.mod h1:L7K9krej6ZIA24Vy8sGaIQivJdO6m9AlWJIBISa2LKc=
 github.com/saichler/l8orm v0.0.0-20260916142109-e7f0284c95ee h1:B53gbdJ+bJnTEq8vpfDFaHxVFWVwjEvGKtQ3jlTQa4Q=
 github.com/saichler/l8orm v0.0.0-20260916142109-e7f0284c95ee/go.mod h1:FYnievTs9ZZ3WE8pjDC1y2Mu+SnNJa7rPY5q1LJbn+A=
 github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a h1:kRhMgzkwvc+Odh/LpTObaaar1ffCkTEeZPXlSB1smfI=

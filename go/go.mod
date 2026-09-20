@@ -25,7 +25,7 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/saichler/l8notify v0.0.0-20260920033004-b2eeb80a0754 // indirect
+	github.com/saichler/l8notify v0.0.0-20260920040606-60469cb52176 // indirect
 	github.com/saichler/l8orm v0.0.0-20260916142109-e7f0284c95ee // indirect
 	github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a // indirect
 	github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be // indirect
