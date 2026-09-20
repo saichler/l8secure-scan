@@ -5,6 +5,8 @@ import (
 	"github.com/saichler/l8secure-scan/go/types/secscan"
 	"github.com/saichler/l8types/go/ifs"
 	"github.com/saichler/l8types/go/types/l8api"
+	"github.com/saichler/l8types/go/types/l8events"
+	"github.com/saichler/l8types/go/types/l8notify"
 )
 
 // RegisterSecscanTypes registers every secscan Prime Object with the
@@ -20,6 +22,16 @@ func RegisterSecscanTypes(resources ifs.IResources) {
 	l8common.RegisterType(resources, &secscan.Cve{}, &secscan.CveList{}, "CveId")
 	l8common.RegisterType(resources, &secscan.ImageRefCve{}, &secscan.ImageRefCveList{}, "ImageRefCveId")
 	l8common.RegisterType(resources, &secscan.ScanJob{}, &secscan.ScanJobList{}, "ScanJobId")
+
+	// Required system services' types (Events, Notify, IntegCfg — activated by
+	// l8common's system.Activate). Without these, secscan-web can't
+	// deserialize their endpoint definitions ("Unknown Type:
+	// EventRecordList") and every request to them fails with "endpoint not
+	// found for action ... area 76/78" — the same class of bug the comments
+	// below describe for this project's own action services.
+	l8common.RegisterType(resources, &l8events.EventRecord{}, &l8events.EventRecordList{}, "EventId")
+	l8common.RegisterType(resources, &l8notify.NotifyRecord{}, &l8notify.NotifyRecordList{}, "NotifyId")
+	l8common.RegisterType(resources, &l8notify.IntegrationConfig{}, &l8notify.IntegrationConfigList{}, "IntegrationId")
 
 	resources.Registry().Register(&secscan.ImgRefAddRequest{})
 	resources.Registry().Register(&secscan.ImgRefAddResponse{})

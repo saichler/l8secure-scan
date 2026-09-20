@@ -5,7 +5,7 @@ import (
 
 	"github.com/saichler/l8bus/go/overlay/vnic"
 	l8common "github.com/saichler/l8common/go/common"
-	evtservices "github.com/saichler/l8events/go/services"
+	"github.com/saichler/l8common/go/system"
 	scommon "github.com/saichler/l8secure-scan/go/secscan/common"
 	"github.com/saichler/l8secure-scan/go/secscan/services"
 )
@@ -19,7 +19,9 @@ func main() {
 	nic.WaitForConnection()
 
 	services.ActivateSecscanServices(scommon.DB_CREDS, scommon.DB_NAME, nic)
-	evtservices.ActivateEvents(scommon.DB_CREDS, scommon.DB_NAME, nic)
+	// Required system services (Events, Notify, IntegCfg) come from l8common,
+	// never by activating them individually.
+	system.Activate(scommon.DB_CREDS, scommon.DB_NAME, nic)
 	resources.Logger().Info("secscan services activated!")
 	l8common.WaitForSignal(resources)
 }
