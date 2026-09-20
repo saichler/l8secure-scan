@@ -119,10 +119,32 @@ window.SecScanGroupDetail = (function() {
         }
     }
 
+    // Sends the WHOLE ImageGroup, not just {imageGroupId, categoryId}.
+    // Two independent reasons, both confirmed against a live cluster:
+    //
+    // 1. ImageGroupServiceCallback Requires CustomerId and ImageName on
+    //    every write, PUT included -- l8common's genericCallback.Before
+    //    runs the full Require chain for every action, not just POST. A
+    //    partial body fails with "Validation Error ... CustomerId is
+    //    required" and the assignment silently does nothing.
+    // 2. PUT is a full-record replace, so even if it validated, a partial
+    //    body would blank imageName and the cached rollup columns.
+    //
+    // PATCH is not the answer either: l8orm's stmt/Statement.go skips zero
+    // values on PATCH, so clearing a category (categoryId '') would be
+    // dropped and "Uncategorized" could never be set back.
+    //
+    // Re-fetched rather than reusing the group this popup rendered from:
+    // background scans rewrite this row's cached counts
+    // (ImageRefServiceCallback.After -> RecomputeImageGroupCache), and a
+    // full replace built from a stale copy would revert them.
     function saveCategory(imageGroupId, categoryId) {
-        makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgGroup'), {
-            method: 'PUT',
-            body: JSON.stringify({ imageGroupId: imageGroupId, categoryId: categoryId || '' })
+        fetchGroup(imageGroupId).then(function(group) {
+            if (!group) throw new Error('Image group not found');
+            return makeAuthenticatedRequest(Layer8DConfig.resolveEndpoint('/60/ImgGroup'), {
+                method: 'PUT',
+                body: JSON.stringify(Object.assign({}, group, { categoryId: categoryId || '' }))
+            });
         }).then(function(resp) {
             if (!resp || !resp.ok) throw new Error('Save failed');
             Layer8DNotification.success('Category updated');

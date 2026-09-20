@@ -135,8 +135,21 @@ window.SecScanGroupDetail_M = (function() {
         });
     }
 
+    // Sends the WHOLE ImageGroup -- see desktop group-detail.js's
+    // saveCategory for the full reasoning. Short version: the callback
+    // Requires CustomerId and ImageName on every write including PUT, so a
+    // partial body fails validation outright; PUT is a full-record replace,
+    // so a partial body would also blank the cached columns; and PATCH
+    // can't be used because l8orm skips zero values on PATCH, which would
+    // make clearing a category impossible. Re-fetched so a background scan
+    // rewriting the cached counts isn't reverted by a stale copy.
     function saveCategory(group, categoryId) {
-        Layer8MAuth.put(Layer8MConfig.resolveEndpoint('/60/ImgGroup'), { imageGroupId: group.imageGroupId, categoryId: categoryId || '' })
+        fetchGroup(group.imageGroupId)
+            .then(function(fresh) {
+                if (!fresh) throw new Error('Image group not found');
+                return Layer8MAuth.put(Layer8MConfig.resolveEndpoint('/60/ImgGroup'),
+                    Object.assign({}, fresh, { categoryId: categoryId || '' }));
+            })
             .then(function() {
                 group.categoryId = categoryId || '';
                 const valueEl = document.getElementById('secscan-m-category-value');
