@@ -31,12 +31,12 @@ window.SecScanGroupDetail_M = (function() {
         ['Completed', 'completed', 'mobile-status-active'],
         ['Failed', 'failed', 'mobile-status-terminated'],
         ['Missing', 'missing', 'mobile-status-warning'],
-        // Trivy hit a registry auth error and no stored credential fixed
-        // it -- same "warning" style as Missing, matching desktop.
+        // Trivy hit a registry auth error: the credentials mounted on the
+        // scanner pod don't cover this image's registry host. Same
+        // "warning" style as Missing, matching desktop.
         ['AuthRequired', 'auth-required', 'mobile-status-warning']
     ]);
     const renderScanStatus = Layer8MRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
-    const SCAN_STATUS_AUTH_REQUIRED = 6;
 
     let selectedIds = new Set();
     let refTable = null;
@@ -202,15 +202,10 @@ window.SecScanGroupDetail_M = (function() {
             Object.assign({}, Layer8ColumnFactory.custom('repoName', 'Repo', function(item) {
                 const checked = selectedIds.has(item.imageRefId) ? ' checked' : '';
                 const label = (item.repoName || '') + (item.tag ? ':' + item.tag : '');
-                const authBtn = item.scanStatus === SCAN_STATUS_AUTH_REQUIRED
-                    ? '<button type="button" class="secscan-m-ref-delete-btn" data-action="provide-creds" ' +
-                      'data-id="' + item.imageRefId + '" onclick="event.stopPropagation()">Provide Credentials</button>'
-                    : '';
                 return '<label class="secscan-m-ref-select-label" onclick="event.stopPropagation()">' +
                     '<input type="checkbox" class="secscan-m-ref-select" data-id="' + item.imageRefId + '"' + checked + '> ' +
                     Layer8MUtils.escapeHtml(item.repoName) + ':' + Layer8MUtils.escapeHtml(item.tag || '') +
                     '</label>' +
-                    authBtn +
                     '<button type="button" class="secscan-m-ref-delete-btn" data-action="delete-ref" ' +
                     'data-id="' + item.imageRefId + '" data-label="' + Layer8MUtils.escapeHtml(label) + '" ' +
                     'onclick="event.stopPropagation()">Delete</button>';
@@ -244,15 +239,15 @@ window.SecScanGroupDetail_M = (function() {
         const container = body.querySelector('#secscan-m-group-refs-container');
         if (container) {
             // Capturing phase, not bubbling (same fix/reasoning as
-            // desktop's group-detail.js): the checkbox/delete-ref/
-            // provide-creds buttons/inputs each carry their own inline
+            // desktop's group-detail.js): the checkbox and delete-ref
+            // buttons/inputs each carry their own inline
             // onclick="event.stopPropagation()" (to keep a tap on them
             // from also triggering the card's own onCardClick) -- a
             // bubble-phase listener on this container fires AFTER that
             // inline handler already ran and stopped propagation, so it
             // would never see the click at all. Capturing runs on the way
             // DOWN to the target, before any of that -- confirmed live,
-            // this was a real bug (provide-creds' popup never opened).
+            // this was a real bug.
             container.addEventListener('click', function(e) {
                 if (e.target && e.target.classList.contains('secscan-m-ref-select')) {
                     e.stopPropagation();
@@ -268,12 +263,6 @@ window.SecScanGroupDetail_M = (function() {
                     const id = e.target.getAttribute('data-id');
                     const label = e.target.getAttribute('data-label');
                     deleteImageRef(id, label, body);
-                } else if (e.target && e.target.getAttribute('data-action') === 'provide-creds') {
-                    e.stopPropagation();
-                    const id = e.target.getAttribute('data-id');
-                    fetchImageRef(id).then(function(ref) {
-                        if (ref) openAuthPopup(ref, group, body);
-                    });
                 }
             }, true);
         }
@@ -299,104 +288,6 @@ window.SecScanGroupDetail_M = (function() {
                 console.error('Group Detail (mobile): failed to delete image ref', err);
                 Layer8MUtils.showError('Failed to delete image reference: ' + err.message);
             });
-    }
-
-    function fetchImageRef(id) {
-        const query = "select * from ImageRef where imageRefId='" + id + "'";
-        return Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/60/ImageRef?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
-            .then(function(data) { return (data && data.list && data.list[0]) || null; });
-    }
-
-    // Mirrors go/secscan/common/imageref_ingest.go's RegistryHost exactly
-    // -- keep in sync if that rule ever changes (same mirror desktop's
-    // group-detail.js keeps). Only used to label the popup; the server is
-    // the real authority on which host a retry looks credentials up under.
-    function parseRegistryHost(repoName) {
-        const slash = (repoName || '').indexOf('/');
-        if (slash < 0) return 'docker.io';
-        const first = repoName.slice(0, slash);
-        if (first === 'localhost' || first.indexOf('.') !== -1 || first.indexOf(':') !== -1) {
-            return first;
-        }
-        return 'docker.io';
-    }
-
-    // Registry auth-required popup (mobile twin of desktop's
-    // group-detail.js openAuthPopup): saves username/password into the
-    // existing System > Security > Credentials store (/75/Creds,
-    // L8Credentials) under a single "registries" group, one item per
-    // host, aside=username/zside=password -- then retries just this
-    // image. No client-side opsadmin gate (this app has none, anywhere --
-    // the /75/Creds write is denied server side for a non-opsadmin user,
-    // surfaced as the error toast below).
-    function openAuthPopup(ref, group, refsBody) {
-        const host = parseRegistryHost(ref.repoName);
-        const formHtml = '<div class="form-group">' +
-            '<p>Registry <strong>' + Layer8MUtils.escapeHtml(host) + '</strong> rejected the pull for ' +
-            Layer8MUtils.escapeHtml(ref.repoName + (ref.tag ? ':' + ref.tag : '')) + '.</p>' +
-            '</div>' +
-            '<div class="form-group">' +
-            '<label for="secscan-m-auth-username">Username</label>' +
-            '<input type="text" id="secscan-m-auth-username" autocomplete="off">' +
-            '</div>' +
-            '<div class="form-group">' +
-            '<label for="secscan-m-auth-password">Password / Token</label>' +
-            '<input type="password" id="secscan-m-auth-password" autocomplete="off">' +
-            '</div>';
-
-        Layer8MPopup.show({
-            title: 'Registry Authentication Required',
-            content: formHtml,
-            size: 'large',
-            showFooter: true,
-            saveButtonText: 'Submit',
-            onSave: function(popup) { submitAndRetry(popup, ref, group, host, refsBody); },
-            onCancel: function() { cancelScan(ref, refsBody); }
-        });
-    }
-
-    function submitAndRetry(popup, ref, group, host, refsBody) {
-        const username = (popup.body.querySelector('#secscan-m-auth-username') || {}).value || '';
-        const password = (popup.body.querySelector('#secscan-m-auth-password') || {}).value || '';
-        if (!username || !password) {
-            Layer8MUtils.showError('Username and password/token are both required.');
-            return;
-        }
-
-        const query = "select * from L8Credentials where id='registries'";
-        Layer8MAuth.get(Layer8MConfig.resolveEndpoint('/75/Creds?body=' + encodeURIComponent(JSON.stringify({ text: query }))))
-            .then(function(data) {
-                const existing = data && data.list && data.list[0];
-                const payload = existing || { id: 'registries', name: 'Registry Credentials', creds: {} };
-                payload.creds = payload.creds || {};
-                payload.creds[host] = { aside: username, zside: password, yside: '' };
-                const method = existing ? 'put' : 'post';
-                return Layer8MAuth[method](Layer8MConfig.resolveEndpoint('/75/Creds'), payload);
-            })
-            .then(function() {
-                return Layer8MAuth.post(Layer8MConfig.resolveEndpoint('/60/ScanJob'), { customerId: group.customerId, imageRefIds: [ref.imageRefId] });
-            })
-            .then(function() {
-                Layer8MPopup.close();
-                Layer8MUtils.showInfo('Retrying scan with the new credentials…');
-                if (refTable) refTable.refresh();
-            })
-            .catch(function(err) {
-                console.error('Group Detail (mobile): failed to save credentials / retry scan', err);
-                Layer8MUtils.showError('Failed to save credentials or start the retry scan: ' + err.message);
-            });
-    }
-
-    function cancelScan(ref, refsBody) {
-        Layer8MAuth.put(Layer8MConfig.resolveEndpoint('/60/ImageRef'), {
-            imageRefId: ref.imageRefId,
-            scanStatus: 4, // SCAN_STATUS_FAILED
-            scanError: 'Scan cancelled: registry authentication was not provided'
-        }).then(function() {
-            if (refTable) refTable.refresh();
-        }).catch(function(err) {
-            console.error('Group Detail (mobile): failed to mark scan cancelled', err);
-        });
     }
 
     // JobStatus enum (proto/secscan.proto): 1=QUEUED (never set anymore --

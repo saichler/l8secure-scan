@@ -2,6 +2,8 @@ package tests
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -66,7 +68,7 @@ func testScanPipeline(t *testing.T, vnic ifs.IVNic) {
 
 	origRunTrivy := scanloop.RunTrivy
 	defer func() { scanloop.RunTrivy = origRunTrivy }()
-	scanloop.RunTrivy = func(repoName, tag, digest, username, password string) (*scanloop.TrivyReport, error) {
+	scanloop.RunTrivy = func(repoName, tag, digest string) (*scanloop.TrivyReport, error) {
 		report, ok := fixtures[tag]
 		if !ok {
 			return nil, fmt.Errorf("fixture: no Trivy fixture for tag %s", tag)
@@ -144,73 +146,66 @@ func testScanPipeline(t *testing.T, vnic ifs.IVNic) {
 	fmt.Println("testScanPipeline: counts/status transitions, oldest-cache movement, Cve dedup, and customerId all correct")
 }
 
-// testScanAuthRequired exercises scanOneImage's registry-auth retry path
-// (image.go): a RunTrivy failure classified ErrAuthRequired triggers one
-// retry with a credential looked up via
-// vnic.Resources().Security().Credential("registries", host, ...) --
-// succeeding lands COMPLETED, still failing lands SCAN_STATUS_AUTH_REQUIRED
-// with a host-naming scanError. This environment has no compiled security
-// plugin (go/vendor/.../sec/ShallowSecurityProvider.go's documented
-// fallback is what actually answers Credential() here, same limitation
-// noted throughout this test suite for anything security-plugin-backed),
-// and that fallback always succeeds with a canned (non-empty) credential
-// -- so the "no credential exists at all" branch (credErr != nil) can't be
-// exercised live in this sandbox. What IS verified here, against real
-// code, not just by reading it: scanOneImage retries exactly once with
-// whatever credential Credential() hands back, a retry that fails again
-// lands AUTH_REQUIRED (not an infinite loop, not silently COMPLETED), and
-// a retry that succeeds lands COMPLETED with the retry's report persisted.
+// testScanAuthRequired exercises scanOneImage's registry-auth handling
+// (image.go): a RunTrivy failure classified ErrAuthRequired lands the
+// ImageRef in SCAN_STATUS_AUTH_REQUIRED with a scanError naming the
+// registry host, and does NOT retry.
+//
+// The retry is the point of the assertion. Registry credentials used to be
+// read out of ifs.ISecurityProvider.Credential("registries", host) and fed
+// to Trivy via TRIVY_USERNAME/TRIVY_PASSWORD for one more attempt; they now
+// come from the docker config mounted on the scanner pod
+// (encripted/apply-registry-credentials.sh), so there is nothing left to
+// retry with and a second RunTrivy call would be a regression. Counting the
+// calls catches that, which reading the code alone would not.
 func testScanAuthRequired(t *testing.T, vnic ifs.IVNic) {
 	const custID = "local"
 
-	refFixed := postBareImageRef(t, vnic, custID, "gcr.io/devsentient-infra/auth-fixed", "v1")
-	refStillBad := postBareImageRef(t, vnic, custID, "gcr.io/devsentient-infra/auth-still-bad", "v1")
+	ref := postBareImageRef(t, vnic, custID, "gcr.io/devsentient-infra/auth-denied", "v1")
 
 	origRunTrivy := scanloop.RunTrivy
 	defer func() { scanloop.RunTrivy = origRunTrivy }()
 
-	var fixedRetryUsername, fixedRetryPassword string
-	scanloop.RunTrivy = func(repoName, tag, digest, username, password string) (*scanloop.TrivyReport, error) {
-		if username == "" && password == "" {
-			// First attempt (both cases): simulate the registry denying
-			// the anonymous pull.
-			return nil, scanloop.ErrAuthRequired
-		}
-		switch repoName {
-		case refFixed.RepoName:
-			fixedRetryUsername, fixedRetryPassword = username, password
-			return &scanloop.TrivyReport{}, nil // retry "succeeds"
-		case refStillBad.RepoName:
-			return nil, scanloop.ErrAuthRequired // retry still fails
-		default:
+	// scanloop scans up to imagePoolSize (4) images concurrently, so the
+	// counter is written from a worker goroutine, not this one.
+	var mu sync.Mutex
+	calls := 0
+	scanloop.RunTrivy = func(repoName, tag, digest string) (*scanloop.TrivyReport, error) {
+		if repoName != ref.RepoName {
 			return nil, fmt.Errorf("fixture: unexpected repoName %s", repoName)
 		}
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		return nil, scanloop.ErrAuthRequired
 	}
 
-	postScanJob(t, vnic, custID, []string{refFixed.ImageRefId, refStillBad.ImageRefId})
+	postScanJob(t, vnic, custID, []string{ref.ImageRefId})
 	time.Sleep(4 * time.Second)
 
-	if fixedRetryUsername == "" || fixedRetryPassword == "" {
-		t.Fatalf("expected the retry to be called with a non-empty username/password from Security().Credential, got %q/%q", fixedRetryUsername, fixedRetryPassword)
+	mu.Lock()
+	got := calls
+	mu.Unlock()
+	if got != 1 {
+		t.Fatalf("expected RunTrivy to be called exactly once (no credential retry), got %d calls", got)
 	}
-	assertImageRefScanned(t, vnic, refFixed.ImageRefId, 0, 0)
 
-	result, err := l8common.GetEntity(scommon.ImageRefServiceName, scommon.ServiceArea, &secscan.ImageRef{ImageRefId: refStillBad.ImageRefId}, vnic)
+	result, err := l8common.GetEntity(scommon.ImageRefServiceName, scommon.ServiceArea, &secscan.ImageRef{ImageRefId: ref.ImageRefId}, vnic)
 	if err != nil {
-		t.Fatalf("failed to fetch ImageRef %s: %v", refStillBad.ImageRefId, err)
+		t.Fatalf("failed to fetch ImageRef %s: %v", ref.ImageRefId, err)
 	}
-	ref, ok := result.(*secscan.ImageRef)
-	if !ok || ref == nil {
-		t.Fatalf("ImageRef %s not found", refStillBad.ImageRefId)
+	scanned, ok := result.(*secscan.ImageRef)
+	if !ok || scanned == nil {
+		t.Fatalf("ImageRef %s not found", ref.ImageRefId)
 	}
-	if ref.ScanStatus != secscan.ScanStatus_SCAN_STATUS_AUTH_REQUIRED {
-		t.Fatalf("expected ImageRef %s scanStatus=AUTH_REQUIRED, got %v", refStillBad.ImageRefId, ref.ScanStatus)
+	if scanned.ScanStatus != secscan.ScanStatus_SCAN_STATUS_AUTH_REQUIRED {
+		t.Fatalf("expected ImageRef %s scanStatus=AUTH_REQUIRED, got %v", ref.ImageRefId, scanned.ScanStatus)
 	}
-	if ref.ScanError == "" {
-		t.Fatalf("expected a non-empty scanError naming the registry host, got empty")
+	if !strings.Contains(scanned.ScanError, "gcr.io") {
+		t.Fatalf("expected scanError to name the registry host, got %q", scanned.ScanError)
 	}
 
-	fmt.Println("testScanAuthRequired: retry-with-credential success and still-failing-after-retry both handled correctly")
+	fmt.Println("testScanAuthRequired: auth-denied scan lands AUTH_REQUIRED with no credential retry")
 }
 
 func seedResolvedImageRef(t *testing.T, vnic ifs.IVNic, custID, repoName, tag string, buildDate int64) *secscan.ImageRef {

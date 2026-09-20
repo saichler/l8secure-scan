@@ -32,23 +32,11 @@ func scanOneImage(refId string, vnic ifs.IVNic) bool {
 		return false
 	}
 
-	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest, "", "")
-	if err != nil && errors.Is(err, ErrAuthRequired) {
-		host := scommon.RegistryHost(ref.RepoName)
-		// "registries" group, one credential item per registry host --
-		// convention documented at the ISecurityProvider.Credential call
-		// site itself (aside=username, zside=password/token, yside
-		// unused). Same lookup mechanism l8common's own ActivateService
-		// already uses for DB credentials.
-		aside, zside, _, _, credErr := vnic.Resources().Security().Credential("registries", host, vnic.Resources())
-		if credErr == nil {
-			report, err = RunTrivy(ref.RepoName, ref.Tag, ref.Digest, aside, zside)
-		}
-		if err != nil && errors.Is(err, ErrAuthRequired) {
-			return authRequiredImage(ref, host, vnic)
-		}
-	}
+	report, err := RunTrivy(ref.RepoName, ref.Tag, ref.Digest)
 	if err != nil {
+		if errors.Is(err, ErrAuthRequired) {
+			return authRequiredImage(ref, scommon.RegistryHost(ref.RepoName), vnic)
+		}
 		if errors.Is(err, ErrImageNotFound) {
 			return missingImage(ref, err.Error(), vnic)
 		}
@@ -97,10 +85,11 @@ func missingImage(ref *secscan.ImageRef, reason string, vnic ifs.IVNic) bool {
 }
 
 // authRequiredImage marks an ImageRef AUTH_REQUIRED rather than FAILED --
-// the registry rejected the pull for lacking (or having wrong) credentials
-// and no usable "registries"-group credential was found for host, as
-// opposed to a generic scan failure. Distinct so the UI can offer a
-// "provide credentials and retry" action instead of a dead end.
+// the registry rejected the pull for lacking (or having wrong)
+// credentials, as opposed to a generic scan failure. Distinct so the
+// operator can tell "the credentials mounted on this pod don't cover
+// host" apart from "the scan itself broke": the fix is to widen what
+// encripted/apply-registry-credentials.sh installs, not to retry.
 func authRequiredImage(ref *secscan.ImageRef, host string, vnic ifs.IVNic) bool {
 	ref.ScanStatus = secscan.ScanStatus_SCAN_STATUS_AUTH_REQUIRED
 	ref.ScanError = "registry authentication required for " + host

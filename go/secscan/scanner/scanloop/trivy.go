@@ -86,10 +86,12 @@ func isImageNotFound(stderrText string) bool {
 // ErrAuthRequired wraps a RunTrivy error when the registry rejected the
 // pull for lacking (or having wrong) credentials -- the counterpart
 // imageNotFoundMarkers' own comment already calls out as excluded from
-// MISSING. image.go checks errors.Is(err, ErrAuthRequired) to look up a
-// stored credential (ifs.ISecurityProvider.Credential, "registries" group,
-// keyed by common.RegistryHost(ref.RepoName)) and retry once before
-// marking the ImageRef SCAN_STATUS_AUTH_REQUIRED instead of FAILED.
+// MISSING. image.go checks errors.Is(err, ErrAuthRequired) to mark the
+// ImageRef SCAN_STATUS_AUTH_REQUIRED instead of FAILED. Terminal: the
+// registry credentials are whatever is mounted on the scanner pod
+// (DOCKER_CONFIG, see encripted/apply-registry-credentials.sh), so there
+// is nothing to retry with -- this status means those credentials don't
+// cover the image's registry host.
 var ErrAuthRequired = errors.New("registry authentication required")
 
 var authDeniedMarkers = []string{
@@ -157,13 +159,11 @@ func localImageTarPath(target string) string {
 // always sets at least a tag from a parsed reference, or the ref would
 // never have been ingested).
 //
-// username/password are optional (empty on the normal first attempt) --
-// image.go's scanOneImage passes a stored "registries" credential
-// (common.RegistryHost-keyed) on its one retry after an ErrAuthRequired,
-// via Trivy's documented TRIVY_USERNAME/TRIVY_PASSWORD env vars (single-
-// registry basic auth for one invocation, not a docker-config-wide
-// setting).
-func runTrivyCLI(repoName, tag, digest, username, password string) (*TrivyReport, error) {
+// Registry credentials are not passed per-invocation: Trivy picks them up
+// from the docker config the scanner pod mounts at $DOCKER_CONFIG (see
+// encripted/apply-registry-credentials.sh), which is also what
+// resolver.go's go-containerregistry keychain reads.
+func runTrivyCLI(repoName, tag, digest string) (*TrivyReport, error) {
 	target := repoName
 	switch {
 	case tag != "":
@@ -189,9 +189,6 @@ func runTrivyCLI(repoName, tag, digest, username, password string) (*TrivyReport
 	defer trivyMu.Unlock()
 
 	cmd := exec.Command("trivy", args...)
-	if username != "" || password != "" {
-		cmd.Env = append(os.Environ(), "TRIVY_USERNAME="+username, "TRIVY_PASSWORD="+password)
-	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
