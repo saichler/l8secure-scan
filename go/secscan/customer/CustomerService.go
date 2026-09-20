@@ -8,8 +8,7 @@ import (
 )
 
 func Activate(creds, dbname string, vnic ifs.IVNic) {
-	l8common.ActivateService(l8common.ServiceConfig{
-		ServiceName: scommon.CustomerServiceName, ServiceArea: scommon.ServiceArea,
-		PrimaryKey: "CustomerId", Callback: newCustomerServiceCallback(vnic),
-	}, &secscan.Customer{}, &secscan.CustomerList{}, creds, dbname, vnic)
+	sla := l8common.NewOrmSLA(scommon.CustomerServiceName, scommon.ServiceArea, "CustomerId", newCustomerServiceCallback(vnic),
+		&secscan.Customer{}, &secscan.CustomerList{})
+	l8common.ActivateService(sla, creds, dbname, vnic)
 }

@@ -8,8 +8,7 @@ import (
 )
 
 func Activate(creds, dbname string, vnic ifs.IVNic) {
-	l8common.ActivateService(l8common.ServiceConfig{
-		ServiceName: scommon.CveServiceName, ServiceArea: scommon.ServiceArea,
-		PrimaryKey: "CveId", Callback: newCveServiceCallback(),
-	}, &secscan.Cve{}, &secscan.CveList{}, creds, dbname, vnic)
+	sla := l8common.NewOrmSLA(scommon.CveServiceName, scommon.ServiceArea, "CveId", newCveServiceCallback(),
+		&secscan.Cve{}, &secscan.CveList{})
+	l8common.ActivateService(sla, creds, dbname, vnic)
 }

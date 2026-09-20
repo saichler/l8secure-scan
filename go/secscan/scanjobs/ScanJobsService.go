@@ -13,8 +13,7 @@ import (
 )
 
 func Activate(creds, dbname string, vnic ifs.IVNic) {
-	l8common.ActivateService(l8common.ServiceConfig{
-		ServiceName: scommon.ScanJobsServiceName, ServiceArea: scommon.ServiceArea,
-		PrimaryKey: "ScanJobId",
-	}, &secscan.ScanJob{}, &secscan.ScanJobList{}, creds, dbname, vnic)
+	sla := l8common.NewOrmSLA(scommon.ScanJobsServiceName, scommon.ServiceArea, "ScanJobId", nil,
+		&secscan.ScanJob{}, &secscan.ScanJobList{})
+	l8common.ActivateService(sla, creds, dbname, vnic)
 }

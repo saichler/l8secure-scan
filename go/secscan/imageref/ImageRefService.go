@@ -8,8 +8,7 @@ import (
 )
 
 func Activate(creds, dbname string, vnic ifs.IVNic) {
-	l8common.ActivateService(l8common.ServiceConfig{
-		ServiceName: scommon.ImageRefServiceName, ServiceArea: scommon.ServiceArea,
-		PrimaryKey: "ImageRefId", Callback: newImageRefServiceCallback(),
-	}, &secscan.ImageRef{}, &secscan.ImageRefList{}, creds, dbname, vnic)
+	sla := l8common.NewOrmSLA(scommon.ImageRefServiceName, scommon.ServiceArea, "ImageRefId", newImageRefServiceCallback(),
+		&secscan.ImageRef{}, &secscan.ImageRefList{})
+	l8common.ActivateService(sla, creds, dbname, vnic)
 }
