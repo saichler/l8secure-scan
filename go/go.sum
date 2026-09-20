@@ -48,8 +48,8 @@ github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc h1:+SaHuit1ACY+FT
 github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc/go.mod h1:0+Snl9PYq+caqTu6OBVaw7mQVn0TrRY9OJz+GelHuM4=
 github.com/saichler/l8utils v0.0.0-20260920000624-14bd73fa8bdd h1:XbusaTB0RojGzBR8N3f7EWYDCPPokc+vs8spokPUBas=
 github.com/saichler/l8utils v0.0.0-20260920000624-14bd73fa8bdd/go.mod h1:nKdvYAEGLyHfxPg09oR6OfkJ0SniSbPb+Zi6wr/D5LU=
-github.com/saichler/l8web v0.0.0-20260915165340-74e4cde904ea h1:RByinb06uiiAcf7hmGQh4+rkMSmIIrgt4Lxx7FNS6g0=
-github.com/saichler/l8web v0.0.0-20260915165340-74e4cde904ea/go.mod h1:r2j6dgKs41L+dwaSh3hQ9OJN0RnQP0C8NWxAbAn+c8c=
+github.com/saichler/l8web v0.0.0-20260920002634-0e48182bb933 h1:6eYAZxgTRzF6qJbFVjzpyZbEAR7LRM4cQjzEkZPG0P8=
+github.com/saichler/l8web v0.0.0-20260920002634-0e48182bb933/go.mod h1:r2j6dgKs41L+dwaSh3hQ9OJN0RnQP0C8NWxAbAn+c8c=
 github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757 h1:hiUdbByYBafQsyoZZz2T6KGfbBMjukf7HEy0aiF/YxA=
 github.com/saichler/probler v0.0.0-20260917181059-f2a3c9694757/go.mod h1:3SmozVci2+FIzlQkm7PuXcUxfG8Qjc+Nml1/0AJPQrc=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
