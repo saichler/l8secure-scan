@@ -40,10 +40,10 @@ github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be h1:NTONXy71PNP7rfkkK
 github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be/go.mod h1:boBPUwEYgpyyTcZcqqjDDYgqkjemEO7iR8kdOwkS1S0=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2 h1:2eDzFMHV/qPqgvz5Kr72q+FStRX9+JSqpX1Ay1cQIAs=
 github.com/saichler/l8reflect v0.0.0-20260510153526-a40cb00e4db2/go.mod h1:yCkCd5JQKqKG+dr6h0HYDiLvNAB8uLUUOdWApnWUw24=
-github.com/saichler/l8services v0.0.0-20260919200933-6f42bea5de04 h1:6f11VSN/U791frui/1Fh85UQe1SGa3b/u/N2yfTXWAM=
-github.com/saichler/l8services v0.0.0-20260919200933-6f42bea5de04/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
-github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2 h1:c35ELO15MmBXO4FjDNzo+gG5qA/alTSui7RvizkI2jw=
-github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
+github.com/saichler/l8services v0.0.0-20260920123629-ec54a5cef7e1 h1:u4DZK8a3EeCzdqW1hbeXtPIf4zLjEXd68cmoeu0+w8A=
+github.com/saichler/l8services v0.0.0-20260920123629-ec54a5cef7e1/go.mod h1:9c3fnIfjQmQ4kyk5Nm3+LsrRWOwmbXvIzK2Xmjf8f1c=
+github.com/saichler/l8srlz v0.0.0-20260920123539-54414e15e38b h1:87ZAz+TdWPlSaRQekDKKygJYop5tk1l7PWU6VH7fyrA=
+github.com/saichler/l8srlz v0.0.0-20260920123539-54414e15e38b/go.mod h1:uDYNwF/5JUA39cg47kX8k+Qh5sI5WjfxgrfmCX5zmwo=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89 h1:G3cHYkdzEoJb5Btsoz629zFoYQSmTzCI0EIplwXxZ08=
 github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89/go.mod h1:C4B8Zpv0L/Di/qB0lOWHOXF3r3Pz/6Oabu730TthWsc=
 github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc h1:+SaHuit1ACY+FTfanIVczYPyaxCW+Gvidnf6bMheltw=
