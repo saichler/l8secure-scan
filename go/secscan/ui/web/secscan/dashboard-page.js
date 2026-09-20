@@ -282,6 +282,17 @@ window.SecScanDashboardKpis = (function() {
     let activeJobId = null;
     let progressBarHandle = null;
 
+    // Which image(s) the scanner is chewing on right now, for the label
+    // inside the progress bar. ScanJob carries no such field, so it is
+    // derived from the ImageRefs the job owns that are currently
+    // SCAN_STATUS_SCANNING (2) -- scanloop.go's scanOneImage marks a ref
+    // SCANNING and persists it before invoking Trivy, so that set IS the
+    // in-flight work. lastJob is kept because the poll re-renders the label
+    // between the ScanJob websocket notifications that normally drive it.
+    let scanningPoll = null;
+    let scanningText = '';
+    let lastJob = null;
+
     // ScanJobs is the renamed, ORM-backed persistence service
     // (plans/scanjob-live-progress.md Phase 2) -- the stateless ScanJob
     // action service's own Get() is stubbed "not supported", so fetching a
@@ -311,16 +322,84 @@ window.SecScanDashboardKpis = (function() {
         }
     }
 
+    // Short form for inside the bar: the repo's last path segment plus the
+    // tag. The full reference is far too long to sit in a progress bar --
+    // a real one from this cluster is 84 characters
+    // ("gcr.io/devsentient-infra/custom/.../cilium/cilium") -- and the
+    // table below already shows it in full.
+    function shortImageName(ref) {
+        const repo = ref.repoName || '';
+        const slash = repo.lastIndexOf('/');
+        const name = slash >= 0 ? repo.slice(slash + 1) : repo;
+        return name + (ref.tag ? ':' + ref.tag : '');
+    }
+
+    // JobStatus RUNNING is 2, and so is ScanStatus SCANNING -- two
+    // unrelated enums that happen to agree; they are not interchangeable.
+    const JOB_STATUS_RUNNING = 2;
+    const SCAN_STATUS_SCANNING = 2;
+
+    function progressLabel(job) {
+        const total = job.totalImages || 1;
+        const done = (job.completedImages || 0) + (job.failedImages || 0);
+        let text = statusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
+            (job.failedImages ? ' (' + job.failedImages + ' failed)' : '');
+        if (job.status === JOB_STATUS_RUNNING && scanningText) {
+            text += ' \u2014 ' + scanningText;
+        }
+        return text;
+    }
+
     function scanJobProgress(job) {
+        lastJob = job;
         const total = job.totalImages || 1;
         const done = (job.completedImages || 0) + (job.failedImages || 0);
         const pct = Math.min(100, Math.round((done / total) * 100));
         return {
             percent: pct,
-            label: statusLabel(job.status) + ': ' + done + ' / ' + total + ' image(s)' +
-                (job.failedImages ? ' (' + job.failedImages + ' failed)' : ''),
+            label: progressLabel(job),
             done: job.status === 3 || job.status === 4 || job.status === 5
         };
+    }
+
+    // scanloop.go fans out over imagePoolSize (4) images at once, so more
+    // than one ref can be SCANNING -- name the first and count the rest
+    // rather than pretending there is exactly one.
+    function startScanningPoll(wrap) {
+        stopScanningPoll();
+        scanningPoll = setInterval(function() {
+            // The Dashboard can be torn down while a job runs (the user
+            // navigates to Images); without this the interval would outlive
+            // it and keep querying for a bar that is no longer on the page.
+            if (!document.body.contains(wrap)) {
+                stopScanningPoll();
+                return;
+            }
+            const customerId = SecScan.getCurrentCustomerId();
+            if (!customerId || !lastJob || lastJob.status !== JOB_STATUS_RUNNING) return;
+            const jobRefIds = new Set(lastJob.imageRefIds || []);
+            fetchStatusRefs(customerId, SCAN_STATUS_SCANNING)
+                .then(function(refs) {
+                    const mine = refs.filter(function(r) { return jobRefIds.has(r.imageRefId); });
+                    scanningText = mine.length === 0 ? ''
+                        : shortImageName(mine[0]) + (mine.length > 1 ? ' (+' + (mine.length - 1) + ' more)' : '');
+                    const labelEl = wrap.querySelector('.layer8d-progress-bar-label');
+                    if (labelEl && lastJob) labelEl.textContent = progressLabel(lastJob);
+                })
+                .catch(function(err) {
+                    // Transient -- keep whatever the label already says
+                    // rather than blanking the image mid-scan.
+                    console.error('Scan progress: failed to load in-flight images', err);
+                });
+        }, 2000);
+    }
+
+    function stopScanningPoll() {
+        if (scanningPoll) {
+            clearInterval(scanningPoll);
+            scanningPoll = null;
+        }
+        scanningText = '';
     }
 
     // --- Scan Failure Report (shown once a job with failedImages > 0 is done) ----
@@ -377,6 +456,7 @@ window.SecScanDashboardKpis = (function() {
         const wrap = document.getElementById('secscan-scan-progress');
         if (!wrap || typeof Layer8DProgressBar === 'undefined') return;
         if (progressBarHandle) progressBarHandle.detach();
+        startScanningPoll(wrap);
         progressBarHandle = Layer8DProgressBar.attach(wrap, {
             modelType: 'ScanJob', // protobuf type name, not ServiceName (Decision 1)
             primaryKey: scanJobId,
@@ -385,6 +465,7 @@ window.SecScanDashboardKpis = (function() {
             onDone: function(job) {
                 activeJobId = null;
                 progressBarHandle = null;
+                stopScanningPoll();
                 SecScanImageSelection.clear();
                 resetScanAllPendingCheckbox();
                 updateScanButton(SecScanImageSelection.count());

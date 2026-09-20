@@ -167,13 +167,55 @@ Layer 8 Ecosystem is licensed under the Apache License, Version 2.0.
     margin-bottom: 16px;
 }
 
+/* Scan progress. Layer8DProgressBar emits the bar and its label as two
+   SIBLINGS, with the label underneath; these rules lift the label onto the
+   bar and centre it, by making this container the positioning context.
+   Done here rather than in l8ui/shared/layer8d-progress-bar.css because
+   that component is generic and every other Layer 8 project renders it the
+   plain way -- nothing is changed for them.
+
+   The bar is taller than the shared 8px so text actually fits inside it.
+   The halo is --layer8d-bg-card, which contrasts with --layer8d-text-dark
+   by construction in all 9 themes (theme-tokens.css defines both in every
+   block) -- it is needed because the centred text crosses the boundary
+   between the filled and unfilled parts of the bar, and those two are
+   different colours, so no single flat text colour reads well on both. */
 .secscan-scan-progress {
     margin-bottom: 16px;
+    position: relative;
 }
-/* Bar/fill/label styling now lives in the generic
-   l8ui/shared/layer8d-progress-bar.css (Layer8DProgressBar injects its own
-   markup with those classes) -- this file only keeps the project-specific
-   outer spacing. */
+
+.secscan-scan-progress .layer8d-progress-bar {
+    height: 22px;
+    border-radius: 11px;
+}
+
+.secscan-scan-progress .layer8d-progress-bar-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 22px;
+    margin-top: 0;
+    padding: 0 12px;
+    line-height: 22px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--layer8d-text-dark);
+    /* Four layers, not one: in the dark themes the text is near-white and
+       the filled part of the bar is bright cyan, so a single soft shadow
+       is not enough separation -- this reads as an outline instead.
+       Verified by rendering both themes at 12/50/88/100% fill. */
+    text-shadow: 0 0 2px var(--layer8d-bg-card), 0 0 4px var(--layer8d-bg-card),
+                 0 0 6px var(--layer8d-bg-card), 0 0 6px var(--layer8d-bg-card);
+    /* The image reference can be long -- truncate rather than overflow the
+       bar or wrap it onto a second line the bar has no room for. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
 
 /* Images (ImageGroup) table: the Name column is what a user actually scans
    the list for -- give it real room instead of the equal split

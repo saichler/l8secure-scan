@@ -226,7 +226,44 @@ html, body {
 .secscan-scan-all-pending-label input[type="checkbox"] { cursor: pointer; }
 /* Bar/fill/label styling lives in the generic
    l8ui/shared/layer8d-progress-bar.css -- this is just the outer spacing. */
-.secscan-m-scan-progress { margin-bottom: 12px; }
+/* Label inside the bar and centred, mobile twin of secscan.css's
+   .secscan-scan-progress rules -- same shared Layer8DProgressBar markup
+   (bar and label as siblings), same reason for overriding here rather than
+   in l8ui. Slightly smaller text than desktop for the narrower viewport. */
+.secscan-m-scan-progress {
+    margin-bottom: 12px;
+    position: relative;
+}
+
+.secscan-m-scan-progress .layer8d-progress-bar {
+    height: 20px;
+    border-radius: 10px;
+}
+
+.secscan-m-scan-progress .layer8d-progress-bar-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    margin-top: 0;
+    padding: 0 10px;
+    line-height: 20px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--layer8d-text-dark);
+    /* Four layers, not one: in the dark themes the text is near-white and
+       the filled part of the bar is bright cyan, so a single soft shadow
+       is not enough separation -- this reads as an outline instead.
+       Verified by rendering both themes at 12/50/88/100% fill. */
+    text-shadow: 0 0 2px var(--layer8d-bg-card), 0 0 4px var(--layer8d-bg-card),
+                 0 0 6px var(--layer8d-bg-card), 0 0 6px var(--layer8d-bg-card);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+}
 .secscan-m-ref-select-label { display: flex; align-items: center; gap: 6px; }
 .secscan-m-ref-delete-btn {
     margin-top: 4px;
