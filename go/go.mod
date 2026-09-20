@@ -5,14 +5,14 @@ go 1.26.1
 require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/lib/pq v1.12.3
-	github.com/saichler/l8bus v0.0.0-20260915183535-939aee6b82a1
-	github.com/saichler/l8common v0.0.0-20260919150344-9767ebf974cc
-	github.com/saichler/l8events v0.0.0-20260919145758-a04b74d9c9d9
+	github.com/saichler/l8bus v0.0.0-20260920024857-555f4a280346
+	github.com/saichler/l8common v0.0.0-20260920032814-32b827380ab2
+	github.com/saichler/l8events v0.0.0-20260920032941-9a68815e426a
 	github.com/saichler/l8logfusion v0.0.0-20260320120056-3a3617eed28f
 	github.com/saichler/l8srlz v0.0.0-20260915183526-7f9f6a0275c2
 	github.com/saichler/l8test v0.0.0-20260412034023-fd4cffd34f89
 	github.com/saichler/l8types v0.0.0-20260913222005-0b4a31604ebc
-	github.com/saichler/l8utils v0.0.0-20260920000624-14bd73fa8bdd
+	github.com/saichler/l8utils v0.0.0-20260920024855-461c335f6b8c
 	github.com/saichler/l8web v0.0.0-20260920002634-0e48182bb933
 	google.golang.org/protobuf v1.36.12
 )
@@ -25,6 +25,7 @@ require (
 	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
+	github.com/saichler/l8notify v0.0.0-20260920033004-b2eeb80a0754 // indirect
 	github.com/saichler/l8orm v0.0.0-20260916142109-e7f0284c95ee // indirect
 	github.com/saichler/l8pollaris v0.0.0-20260418233826-378ba5e9453a // indirect
 	github.com/saichler/l8ql v0.0.0-20260915205353-691ef2e3d8be // indirect
