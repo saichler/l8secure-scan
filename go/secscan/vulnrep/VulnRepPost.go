@@ -85,7 +85,7 @@ func buildRow(g *secscan.ImageGroup, vnic ifs.IVNic) ([]string, error) {
 		category,
 		vulnCountCell(g.NewestCounts),
 		vulnCountCell(g.OldestCounts),
-		reductionPctCell(g.NewestCounts, g.OldestCounts, g.ScannedRefCount),
+		reductionPctCell(g.NewestCounts, g.OldestCounts),
 		refsCell,
 	}, nil
 }
@@ -119,15 +119,16 @@ func imageRefsCell(groupId string, vnic ifs.IVNic) (string, error) {
 	}
 	sort.Slice(refs, func(i, j int) bool { return refs[i].BuildDate > refs[j].BuildDate })
 
+	// The reference and nothing else, one per line. Still sorted newest
+	// buildDate first, but the date itself is no longer printed -- the
+	// cell is a list of image refs, not a changelog. escapeCSV quotes any
+	// cell containing a newline, so the line breaks render inside the one
+	// cell rather than breaking the row apart.
 	parts := make([]string, 0, len(refs))
 	for _, r := range refs {
-		dateStr := "Resolving"
-		if r.BuildDate > 0 {
-			dateStr = time.Unix(r.BuildDate, 0).UTC().Format(time.RFC3339)
-		}
-		parts = append(parts, fmt.Sprintf("%s:%s (%s)", r.RepoName, r.Tag, dateStr))
+		parts = append(parts, fmt.Sprintf("%s:%s", r.RepoName, r.Tag))
 	}
-	return strings.Join(parts, "; "), nil
+	return strings.Join(parts, "\n"), nil
 }
 
 func critical(c *secscan.VulnerabilityCounts) int32 { return c.Critical }
@@ -141,43 +142,84 @@ func total(c *secscan.VulnerabilityCounts) int32 {
 	return c.Critical + c.High + c.Medium + c.Low
 }
 
+// cellWidth is the column width every count value is padded to, so the
+// T/C/H/M/L fields line up down the file. Values wider than this are not
+// truncated -- they just push their column out, which is preferable to
+// losing a digit.
+const cellWidth = 4
+
+// reductionCellWidth is the same idea for the Reduction % column, which
+// needs more room: its values carry a decimal, a "%", and sometimes a
+// minus sign, so they run 4 to 7 characters ("0.0%" up to "-100.0%").
+// Padding those to cellWidth would never actually pad anything and the
+// column would not line up at all.
+const reductionCellWidth = 7
+
 // vulnCountCell matches the Images table's own Vulnerabilities column
-// format exactly ("T:<total> C:<critical> H:<high> M:<medium> L:<low>").
+// format ("T:<total> C:<critical> H:<high> M:<medium> L:<low>"), with each
+// value left-aligned in cellWidth characters.
 func vulnCountCell(c *secscan.VulnerabilityCounts) string {
 	if c == nil {
 		c = &secscan.VulnerabilityCounts{}
 	}
-	return fmt.Sprintf("T:%d C:%d H:%d M:%d L:%d", total(c), c.Critical, c.High, c.Medium, c.Low)
+	return fmt.Sprintf("T:%-*d C:%-*d H:%-*d M:%-*d L:%-*d",
+		cellWidth, total(c), cellWidth, c.Critical, cellWidth, c.High,
+		cellWidth, c.Medium, cellWidth, c.Low)
 }
 
-// reductionPctCell mirrors vulnCountCell's T/C/H/M/L shape, but every
-// value is a reductionPct() result (a percentage string, or "N/A") --
-// `total` satisfies the same sev func(*VulnerabilityCounts) int32 shape
-// reductionPct already takes, so the T value is just the same math applied
-// to each side's combined severity count instead of one severity's.
-func reductionPctCell(newest, oldest *secscan.VulnerabilityCounts, scannedRefCount int32) string {
-	return fmt.Sprintf("T:%s C:%s H:%s M:%s L:%s",
-		reductionPct(newest, oldest, scannedRefCount, total),
-		reductionPct(newest, oldest, scannedRefCount, critical),
-		reductionPct(newest, oldest, scannedRefCount, high),
-		reductionPct(newest, oldest, scannedRefCount, medium),
-		reductionPct(newest, oldest, scannedRefCount, low))
-}
-
-// reductionPct applies the canonical N/A rule set (PRD §10): N/A when the
-// group has fewer than 2 scanned image refs, when the newest and oldest
-// resolve to the same image ref (single data point -- by construction in
-// scommon.RecomputeImageGroupCache, this always coincides with
-// scannedRefCount<2, so no separate check is needed), or when
-// oldest.sev=0 (division by zero).
-func reductionPct(newest, oldest *secscan.VulnerabilityCounts, scannedRefCount int32, sev func(*secscan.VulnerabilityCounts) int32) string {
-	if scannedRefCount < 2 || newest == nil || oldest == nil {
-		return "N/A"
+// reductionPctCell mirrors vulnCountCell's T/C/H/M/L shape and padding,
+// but every value is a reductionPct() result -- `total` satisfies the same
+// sev func(*VulnerabilityCounts) int32 shape reductionPct takes, so the T
+// value is the same math applied to each side's combined severity count
+// instead of one severity's.
+//
+// Padded to reductionCellWidth rather than cellWidth, since these values
+// are wider than the counts. The "%" is appended BEFORE padding, not
+// after, so the sign stays welded to its number ("0.0%   ", never
+// "0.0   %"). Padding between them would read as two separate values, and
+// the cell is whitespace-delimited.
+func reductionPctCell(newest, oldest *secscan.VulnerabilityCounts) string {
+	// Normalized once here so the per-severity getters below never see a
+	// nil -- only total() guards against it on its own.
+	if newest == nil {
+		newest = &secscan.VulnerabilityCounts{}
 	}
+	if oldest == nil {
+		oldest = &secscan.VulnerabilityCounts{}
+	}
+	pct := func(sev func(*secscan.VulnerabilityCounts) int32) string {
+		return reductionPct(newest, oldest, sev) + "%"
+	}
+	return fmt.Sprintf("T:%-*s C:%-*s H:%-*s M:%-*s L:%-*s",
+		reductionCellWidth, pct(total), reductionCellWidth, pct(critical),
+		reductionCellWidth, pct(high), reductionCellWidth, pct(medium),
+		reductionCellWidth, pct(low))
+}
+
+// reductionPct is (oldest-newest)/oldest as a percentage, and always
+// returns a number -- never "N/A", which told the reader nothing and made
+// the column impossible to sort or chart.
+//
+// The old scannedRefCount<2 rule is gone rather than replaced: a group with
+// a single scanned ref has newest == oldest by construction
+// (scommon.RecomputeImageGroupCache), so the formula already yields 0.0 --
+// which is the honest answer. Nothing has changed yet, because there is
+// only one measurement.
+//
+// oldest.sev == 0 is the one case the formula genuinely cannot express,
+// the denominator being zero. Split by what it means instead of refusing:
+// 0 -> 0 is no change at all, and 0 -> something is a pure regression with
+// no baseline to measure it against, reported at the -100.0 floor. Both
+// are negative-or-zero, which is what a reduction column should say when
+// things got worse.
+func reductionPct(newest, oldest *secscan.VulnerabilityCounts, sev func(*secscan.VulnerabilityCounts) int32) string {
 	o := sev(oldest)
 	n := sev(newest)
 	if o == 0 {
-		return "N/A"
+		if n == 0 {
+			return "0.0"
+		}
+		return "-100.0"
 	}
 	pct := float64(o-n) / float64(o) * 100
 	return strconv.FormatFloat(pct, 'f', 1, 64)

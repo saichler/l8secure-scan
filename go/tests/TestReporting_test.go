@@ -83,22 +83,25 @@ func testCacheReductionConsistency(t *testing.T, client *mocks.Client, vnic ifs.
 	scanned := findCsvRow(t, rows, "img")
 	assertCsvSevField(t, scanned, "Newest", "C", "0")
 	assertCsvSevField(t, scanned, "Oldest", "C", "1")
-	assertCsvSevField(t, scanned, "Reduction %", "C", "100.0")
-	assertCsvSevField(t, scanned, "Reduction %", "H", "100.0")
-	// oldest.medium=0 for img-old -> division-by-zero N/A rule.
-	assertCsvSevField(t, scanned, "Reduction %", "M", "N/A")
-	assertCsvSevField(t, scanned, "Reduction %", "L", "N/A")
+	assertCsvSevField(t, scanned, "Reduction %", "C", "100.0%")
+	assertCsvSevField(t, scanned, "Reduction %", "H", "100.0%")
+	// oldest.medium=0 and newest.medium=0 for this group. No longer the
+	// "N/A" that used to mean division-by-zero -- 0 -> 0 is no change,
+	// which is 0.0%. Same for low.
+	assertCsvSevField(t, scanned, "Reduction %", "M", "0.0%")
+	assertCsvSevField(t, scanned, "Reduction %", "L", "0.0%")
 
 	// An unscanned group (one of Phase 6's seeded, still-PENDING images)
-	// has scannedRefCount<2 -> every reduction field is N/A, and the
-	// consolidated count cells are all-zero (nil counts render as
-	// "T:0 C:0 H:0 M:0 L:0", not blank, now that they're one cell).
+	// has nil counts on both sides, which render as zeros rather than
+	// blanks, and therefore 0.0% reduction -- nothing measured, nothing
+	// changed. This is the case that used to be N/A via the
+	// scannedRefCount<2 rule.
 	unscanned := findCsvRow(t, rows, "secscan")
 	assertCsvSevField(t, unscanned, "Newest", "C", "0")
-	assertCsvSevField(t, unscanned, "Reduction %", "C", "N/A")
-	assertCsvSevField(t, unscanned, "Reduction %", "L", "N/A")
+	assertCsvSevField(t, unscanned, "Reduction %", "C", "0.0%")
+	assertCsvSevField(t, unscanned, "Reduction %", "L", "0.0%")
 
-	fmt.Println("testCacheReductionConsistency: CSV reduction math matches expected values, N/A edge cases correct")
+	fmt.Println("testCacheReductionConsistency: CSV reduction math matches expected values, zero-baseline edge cases correct")
 }
 
 // CSV report (PRD §19/§10): the consolidated 6-column header set (one
