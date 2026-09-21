@@ -1,5 +1,7 @@
 package common
 
+import "fmt"
+
 // ServiceArea is shared by every secscan-owned service (Maintainability:
 // "ServiceArea same for all services in a module").
 const ServiceArea = byte(60)
@@ -37,5 +39,33 @@ const PREFIX = "/scan/"
 // DB_CREDS/DB_NAME identify the postgres credential entry in the security
 // config plugin (../l8secure/go/secure/plugin/secscan/secscan.json):
 // credentials[DB_CREDS].creds[DB_NAME].
+// MaxAutoScanBytes is the size above which an image is not scanned as part
+// of a multi-image job. Scanning is serialized on one Trivy CLI and one
+// shared cache (scanloop's trivyMu), so a single multi-gigabyte pull
+// stalls every other image queued behind it -- which is exactly what a
+// bulk "scan all pending" sweep is. Such an image is still scannable, just
+// on its own, where it blocks nothing.
+//
+// 1 GiB, not 1 GB: sizes here come from the registry as raw byte counts
+// and every tool that displays them (docker, crane, GCR's own console)
+// divides by 1024.
+const MaxAutoScanBytes int64 = 1 << 30
+
+// HumanBytes renders a byte count the way every container tool does --
+// binary units, one decimal. Used in operator-facing messages, never for
+// arithmetic.
+func HumanBytes(n int64) string {
+	const unit = 1024
+	if n < unit {
+		return fmt.Sprintf("%d B", n)
+	}
+	div, exp := int64(unit), 0
+	for m := n / unit; m >= unit; m /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
+}
+
 var DB_CREDS = "postgres"
 var DB_NAME = "secscan"

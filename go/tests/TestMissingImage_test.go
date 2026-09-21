@@ -36,7 +36,7 @@ import (
 // short-circuit before the network call, so this asserts no lookup was
 // even attempted for that repo. Safe to assert because the test harness
 // (TestAllService_test.go) activates the services and scanjob but never
-// starts resolver.Run, so the only thing calling resolver.LookupCreated
+// starts resolver.Run, so the only thing calling resolver.LookupImageMeta
 // here is the fallback itself.
 func testMissingImage(t *testing.T, vnic ifs.IVNic) {
 	const custID = "local"
@@ -57,18 +57,18 @@ func testMissingImage(t *testing.T, vnic ifs.IVNic) {
 		return nil, fmt.Errorf("%w: manifest unknown", scanloop.ErrImageNotFound)
 	}
 
-	origLookup := resolver.LookupCreated
-	defer func() { resolver.LookupCreated = origLookup }()
+	origLookup := resolver.LookupImageMeta
+	defer func() { resolver.LookupImageMeta = origLookup }()
 	var mu sync.Mutex
 	var lookedUp []string
-	resolver.LookupCreated = func(repoName, tag, digest string) (int64, error) {
+	resolver.LookupImageMeta = func(repoName, tag, digest string) (*resolver.ImageMeta, error) {
 		mu.Lock()
 		lookedUp = append(lookedUp, repoName+":"+tag)
 		mu.Unlock()
 		if repoName == repoHasLatest && tag == scanloop.LatestTag {
-			return now, nil
+			return &resolver.ImageMeta{Created: now, SizeBytes: 1024}, nil
 		}
-		return 0, errors.New("fixture: no such tag in the registry")
+		return nil, errors.New("fixture: no such tag in the registry")
 	}
 
 	postScanJob(t, vnic, custID, []string{

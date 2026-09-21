@@ -47,6 +47,20 @@ window.SecScanGroupDetail_M = (function() {
     // tapped by hand in this same table.
     let scanAllPendingIds = null;
 
+    // Mirrors common/defaults.go's MaxAutoScanBytes, same as desktop
+    // dashboard-page.js: an image over this is left out of bulk scans
+    // because scanning serializes on one Trivy CLI, so a multi-gigabyte
+    // pull stalls everything behind it. Still scannable on its own.
+    const MAX_AUTO_SCAN_BYTES = 1073741824;
+
+    function humanBytes(n) {
+        if (!n) return '';
+        const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+        let v = n, i = 0;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? v : v.toFixed(1)) + ' ' + units[i];
+    }
+
     // Which image(s) are in flight right now, for the label inside the
     // progress bar -- mobile twin of desktop dashboard-page.js. ScanJob has
     // no such field, so it comes from this group's ImageRefs sitting at
@@ -195,16 +209,31 @@ window.SecScanGroupDetail_M = (function() {
             .then(function(results) { return results[0].concat(results[1]); });
     }
 
+    // Splits candidates into what a bulk scan may take and what it must
+    // leave behind, so the caller can say what was left and why.
+    function splitOversized(refs) {
+        const scannable = [], oversized = [];
+        refs.forEach(function(r) {
+            ((r.sizeBytes || 0) > MAX_AUTO_SCAN_BYTES ? oversized : scannable).push(r);
+        });
+        return { scannable: scannable, oversized: oversized };
+    }
+
     function attachScanAllPending(body, group) {
         const checkbox = body.querySelector('#secscan-m-scan-all-pending-checkbox');
         if (!checkbox) return;
         checkbox.addEventListener('change', function() {
             if (checkbox.checked) {
                 checkbox.disabled = true;
-                fetchPendingImageRefs(group.imageGroupId).then(function(refs) {
+                fetchPendingImageRefs(group.imageGroupId).then(function(all) {
+                    const split = splitOversized(all);
+                    const refs = split.scannable;
                     scanAllPendingIds = refs.map(function(r) { return r.imageRefId; });
                     refs.forEach(function(r) { selectedIds.add(r.imageRefId); });
-                    if (refs.length === 0) {
+                    if (split.oversized.length > 0) {
+                        Layer8MUtils.showInfo(split.oversized.length + ' image(s) over 1 GiB left out — scan on its own');
+                    }
+                    if (refs.length === 0 && split.oversized.length === 0) {
                         Layer8MUtils.showSuccess('No pending images to scan');
                     }
                     updateScanButton(body);
@@ -242,7 +271,15 @@ window.SecScanGroupDetail_M = (function() {
                 if (item.scanError && !item.buildDate) {
                     return 'Failed: ' + Layer8MUtils.escapeHtml(item.scanError);
                 }
-                return item.buildDate ? Layer8MUtils.formatDate(item.buildDate) : 'Resolving…';
+                const date = item.buildDate ? Layer8MUtils.formatDate(item.buildDate) : 'Resolving…';
+                const n = item.sizeBytes || 0;
+                if (!n) return date;
+                // Flagged when over the limit, so its absence from a bulk
+                // scan is explained rather than looking like a bug. Shares
+                // the Build Date column because a phone has no room for a
+                // sixth one.
+                const size = humanBytes(n) + (n > MAX_AUTO_SCAN_BYTES ? ' ⚠' : '');
+                return date + ' · ' + Layer8MUtils.escapeHtml(size);
             }, { sortKey: 'buildDate' })[0], { secondary: true }),
             Object.assign({}, Layer8ColumnFactory.status('scanStatus', 'Scan Status', SCAN_STATUS.values, renderScanStatus)[0], { secondary: true }),
             ...Layer8ColumnFactory.custom('totalCounts', 'Total', function(item) { return vulnCell(item.totalCounts); }, { sortKey: false }),
@@ -498,7 +535,14 @@ window.SecScanGroupDetail_M = (function() {
                     // the ScanJob is CREATED, before a single image has
                     // actually been scanned (real user confusion, reported
                     // live, on the desktop equivalent of this same message).
-                    Layer8MUtils.showInfo('Started scanning ' + ids.length + ' image(s)');
+                    // ScanJobPost drops images over 1 GiB from a
+                    // multi-image job and returns totalImages reflecting
+                    // what will actually run -- see desktop dashboard-page.js.
+                    const dropped = ids.length - (job.totalImages || ids.length);
+                    if (dropped > 0) {
+                        Layer8MUtils.showInfo(dropped + ' image(s) over 1 GiB left out — scan each on its own');
+                    }
+                    Layer8MUtils.showInfo('Started scanning ' + (job.totalImages || ids.length) + ' image(s)');
                     selectedIds = new Set();
                     scanAllPendingIds = null;
                     const scanAllCheckbox = body.querySelector('#secscan-m-scan-all-pending-checkbox');

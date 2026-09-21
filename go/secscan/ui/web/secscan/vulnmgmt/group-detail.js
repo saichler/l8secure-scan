@@ -43,6 +43,19 @@ window.SecScanGroupDetail = (function() {
     ]);
     const renderScanStatus = Layer8DRenderers.createStatusRenderer(SCAN_STATUS.enum, SCAN_STATUS.classes);
 
+    // Mirrors common/defaults.go's MaxAutoScanBytes -- an image over this
+    // is excluded from bulk scans and must be scanned on its own, so the
+    // Size column flags it rather than leaving the exclusion unexplained.
+    const MAX_AUTO_SCAN_BYTES = 1073741824;
+
+    function humanBytes(n) {
+        if (!n) return '';
+        const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+        let v = n, i = 0;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? v : v.toFixed(1)) + ' ' + units[i];
+    }
+
     let currentGroupId = null;
     let refTable = null;
 
@@ -173,6 +186,17 @@ window.SecScanGroupDetail = (function() {
                 }
                 return item.buildDate ? Layer8DUtils.formatDate(item.buildDate) : 'Resolving…';
             }, { sortKey: 'buildDate' }),
+            ...Layer8ColumnFactory.custom('sizeBytes', 'Size', function(item) {
+                const n = item.sizeBytes || 0;
+                if (!n) return 'Resolving…';
+                const text = Layer8DUtils.escapeHtml(humanBytes(n));
+                // Over the limit it is excluded from bulk scans, so say so
+                // here -- otherwise its absence from "Scan all pending"
+                // looks like a bug.
+                return n > MAX_AUTO_SCAN_BYTES
+                    ? '<span class="layer8d-status-warning" title="Over 1 GiB — scan this image on its own">' + text + '</span>'
+                    : text;
+            }, { sortKey: 'sizeBytes' }),
             ...Layer8ColumnFactory.status('scanStatus', 'Scan Status', SCAN_STATUS.values, renderScanStatus),
             ...Layer8ColumnFactory.custom('totalCounts', 'Total', function(item) { return vulnCell(item.totalCounts); }, { sortKey: false }),
             ...Layer8ColumnFactory.custom('distinctCounts', 'Distinct', function(item) { return vulnCell(item.distinctCounts); }, { sortKey: false })

@@ -15,7 +15,7 @@ import (
 
 // testResolver exercises PRD §19's metadata-resolution scenario: seeds
 // ImageRefs with buildDate=0 (the natural state right after ingestion,
-// §6.1 Phase A), injects a fixture registry lookup (resolver.LookupCreated,
+// §6.1 Phase A), injects a fixture registry lookup (resolver.LookupImageMeta,
 // the exported seam added this phase -- TestLocationAndApproach: this
 // test only ever calls resolver.Run, the real exported entry point), runs
 // the resolver loop briefly, and asserts buildDate populates (success
@@ -24,17 +24,18 @@ import (
 func testResolver(t *testing.T, vnic ifs.IVNic) {
 	const custID = "local"
 	const fixedCreated = int64(1700000000) // 2023-11-14T22:13:20Z, arbitrary fixed fixture value
+	const fixedSize = int64(512 * 1024 * 1024)
 
 	okRef := postBareImageRef(t, vnic, custID, "registry.example.com/resolver-test/ok-image", "v1")
 	failRef := postBareImageRef(t, vnic, custID, "registry.example.com/resolver-test/fail-image", "v1")
 
-	origLookup := resolver.LookupCreated
-	defer func() { resolver.LookupCreated = origLookup }()
-	resolver.LookupCreated = func(repoName, tag, digest string) (int64, error) {
+	origLookup := resolver.LookupImageMeta
+	defer func() { resolver.LookupImageMeta = origLookup }()
+	resolver.LookupImageMeta = func(repoName, tag, digest string) (*resolver.ImageMeta, error) {
 		if repoName == okRef.RepoName {
-			return fixedCreated, nil
+			return &resolver.ImageMeta{Created: fixedCreated, SizeBytes: fixedSize}, nil
 		}
-		return 0, errors.New("fixture: registry lookup failed")
+		return nil, errors.New("fixture: registry lookup failed")
 	}
 
 	stop := make(chan struct{})
@@ -45,7 +46,15 @@ func testResolver(t *testing.T, vnic ifs.IVNic) {
 	assertBuildDate(t, vnic, okRef.ImageRefId, fixedCreated, "")
 	assertBuildDateFailed(t, vnic, failRef.ImageRefId)
 
-	fmt.Println("testResolver: buildDate resolved on success, scanError set on failure")
+	// sizeBytes comes off the same lookup as buildDate, and is also what
+	// the resolver's own poll query keys on -- a ref that never gets one
+	// would be re-resolved forever.
+	resolved := fetchImageRefById(t, vnic, okRef.ImageRefId)
+	if resolved.SizeBytes != fixedSize {
+		t.Fatalf("expected sizeBytes=%d on the resolved ref, got %d", fixedSize, resolved.SizeBytes)
+	}
+
+	fmt.Println("testResolver: buildDate and sizeBytes resolved on success, scanError set on failure")
 }
 
 func postBareImageRef(t *testing.T, vnic ifs.IVNic, custID, repoName, tag string) *secscan.ImageRef {
@@ -60,6 +69,19 @@ func postBareImageRef(t *testing.T, vnic ifs.IVNic, custID, repoName, tag string
 	}
 	if ref.BuildDate != 0 {
 		t.Fatalf("expected freshly-ingested ImageRef to have buildDate=0, got %d", ref.BuildDate)
+	}
+	return ref
+}
+
+func fetchImageRefById(t *testing.T, vnic ifs.IVNic, refId string) *secscan.ImageRef {
+	t.Helper()
+	result, err := l8common.GetEntity(scommon.ImageRefServiceName, scommon.ServiceArea, &secscan.ImageRef{ImageRefId: refId}, vnic)
+	if err != nil {
+		t.Fatalf("failed to fetch ImageRef %s: %v", refId, err)
+	}
+	ref, ok := result.(*secscan.ImageRef)
+	if !ok || ref == nil {
+		t.Fatalf("ImageRef %s not found", refId)
 	}
 	return ref
 }

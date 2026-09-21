@@ -68,11 +68,11 @@ func ensureLatestRef(missing *secscan.ImageRef, vnic ifs.IVNic) {
 		return
 	}
 
-	// LookupCreated is the project's one registry-metadata seam (it already
-	// carries the pod's credentials via the go-containerregistry keychain,
-	// and tests reassign it) -- a successful lookup is proof the tag
-	// resolves, so this needs no second registry client of its own.
-	if _, err := resolver.LookupCreated(missing.RepoName, LatestTag, ""); err != nil {
+	// LookupImageMeta is the project's one registry-metadata seam (it
+	// already carries the pod's credentials via the go-containerregistry
+	// keychain, and tests reassign it) -- a successful lookup is proof the
+	// tag resolves, so this needs no second registry client of its own.
+	if _, err := resolver.LookupImageMeta(missing.RepoName, LatestTag, ""); err != nil {
 		// Not in the registry either. Nothing to add; the original ref
 		// stays MISSING and that is the whole story.
 		return

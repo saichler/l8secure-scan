@@ -105,6 +105,12 @@ message ImageRef {
   VulnerabilityCounts distinct_counts = 11; // distinct CVEs
   string scan_error            = 12;
   l8common.AuditInfo audit_info = 13;
+  // Compressed size as the registry reports it: the sum of the manifest's
+  // config blob and every layer blob. This is the download size, not the
+  // extracted-on-disk size, which no registry publishes without pulling
+  // the whole image. Resolved alongside build_date by the resolver loop
+  // (§6.1 Phase B) from the same manifest fetch. 0 = not resolved yet.
+  int64  size_bytes            = 14;
 }
 message ImageRefList {
   repeated ImageRef list    = 1;

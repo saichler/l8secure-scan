@@ -202,6 +202,22 @@ window.SecScanDashboardKpis = (function() {
     // would look like from a fresh 're-select all' query at uncheck time.
     let scanAllPendingIds = null;
 
+    // Mirrors common/defaults.go's MaxAutoScanBytes. An image over this is
+    // left out of every bulk selection: scanning is serialized on one Trivy
+    // CLI and one shared cache, so a multi-gigabyte pull stalls everything
+    // queued behind it, which is exactly what a bulk sweep is. It stays
+    // scannable on its own, where it blocks nothing -- ScanJobPost enforces
+    // the same rule server-side for any other client.
+    const MAX_AUTO_SCAN_BYTES = 1073741824;
+
+    function humanBytes(n) {
+        if (!n) return '';
+        const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
+        let v = n, i = 0;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return (i === 0 ? v : v.toFixed(1)) + ' ' + units[i];
+    }
+
     // PENDING (1) and AUTH_REQUIRED (6). An auth-blocked ref is exactly
     // what wants sweeping up after widening the credentials
     // encripted/apply-registry-credentials.sh installs, and since the
@@ -214,6 +230,26 @@ window.SecScanDashboardKpis = (function() {
             .then(function(results) { return results[0].concat(results[1]); });
     }
 
+    // Splits a candidate list into what a bulk scan may take and what it
+    // must leave behind, so the caller can say which were left and why
+    // rather than quietly shipping a shorter list.
+    function splitOversized(refs) {
+        const scannable = [], oversized = [];
+        refs.forEach(function(r) {
+            ((r.sizeBytes || 0) > MAX_AUTO_SCAN_BYTES ? oversized : scannable).push(r);
+        });
+        return { scannable: scannable, oversized: oversized };
+    }
+
+    function oversizedNotice(oversized) {
+        const names = oversized.map(function(r) {
+            return (r.repoName || '').split('/').pop() + (r.tag ? ':' + r.tag : '') +
+                ' (' + humanBytes(r.sizeBytes) + ')';
+        });
+        Layer8DNotification.info(oversized.length + ' image' + (oversized.length === 1 ? '' : 's') +
+            ' over 1 GiB left out \u2014 scan on its own: ' + names.join(', '));
+    }
+
     function onScanAllPendingChange(e) {
         const checkbox = e.target;
         if (checkbox.checked) {
@@ -224,12 +260,17 @@ window.SecScanDashboardKpis = (function() {
                 return;
             }
             checkbox.disabled = true;
-            fetchPendingImageRefs(customerId).then(function(refs) {
+            fetchPendingImageRefs(customerId).then(function(all) {
+                const split = splitOversized(all);
+                const refs = split.scannable;
                 scanAllPendingIds = refs.map(function(r) { return r.imageRefId; });
                 refs.forEach(function(r) {
                     SecScanImageSelection.add(r.imageRefId, (r.repoName || '') + (r.tag ? ':' + r.tag : ''));
                 });
-                if (refs.length === 0) {
+                if (split.oversized.length > 0) {
+                    oversizedNotice(split.oversized);
+                }
+                if (refs.length === 0 && split.oversized.length === 0) {
                     Layer8DNotification.success('No pending images to scan');
                 }
             }).catch(function(err) {
@@ -522,7 +563,18 @@ window.SecScanDashboardKpis = (function() {
             // which read as "the scan already succeeded" (real user
             // confusion, reported live) even though the body text said
             // "Scanning", not "Scanned".
-            Layer8DNotification.info('Started scanning ' + ids.length + ' image(s)');
+            // ScanJobPost drops images over 1 GiB from a multi-image job
+            // and returns totalImages reflecting what will actually run.
+            // Comparing against what was asked for is how a hand-picked
+            // multi-select learns something was left out -- the selection
+            // store holds ids and labels, not sizes, so the UI cannot tell
+            // on its own without re-fetching every ref.
+            const dropped = ids.length - (job.totalImages || ids.length);
+            if (dropped > 0) {
+                Layer8DNotification.info(dropped + ' image' + (dropped === 1 ? '' : 's') +
+                    ' over 1 GiB left out \u2014 scan each on its own');
+            }
+            Layer8DNotification.info('Started scanning ' + (job.totalImages || ids.length) + ' image(s)');
             updateScanButton(SecScanImageSelection.count());
             attachProgressBar(job.scanJobId);
         }).catch(function(err) {

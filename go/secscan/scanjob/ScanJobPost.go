@@ -1,6 +1,7 @@
 package scanjob
 
 import (
+	"strings"
 	"time"
 
 	l8common "github.com/saichler/l8common/go/common"
@@ -29,6 +30,7 @@ func (this *ScanJobHandler) Post(elems ifs.IElements, vnic ifs.IVNic) ifs.IEleme
 	if len(job.ImageRefIds) == 0 {
 		return object.NewError("imageRefIds is required")
 	}
+	refs := make([]*secscan.ImageRef, 0, len(job.ImageRefIds))
 	for _, refId := range job.ImageRefIds {
 		result, err := l8common.GetEntity(scommon.ImageRefServiceName, scommon.ServiceArea, &secscan.ImageRef{ImageRefId: refId}, vnic)
 		if err != nil {
@@ -41,6 +43,48 @@ func (this *ScanJobHandler) Post(elems ifs.IElements, vnic ifs.IVNic) ifs.IEleme
 		if ref.CustomerId != job.CustomerId {
 			return object.NewError("imageRefId " + refId + " does not belong to customer " + job.CustomerId)
 		}
+		refs = append(refs, ref)
+	}
+
+	// An image over MaxAutoScanBytes is dropped from a job that has other
+	// images in it, and kept when it is the only one. The backstop lives
+	// here rather than only in the UI so it holds for any client, including
+	// a direct POST -- the UIs filter too, so in practice this rarely
+	// fires.
+	//
+	// Dropped, not rejected: one oversized image should not block a sweep
+	// of fifty others. It is named in skippedOversized so the caller can
+	// say what happened; nothing is silently discarded.
+	var skipped []string
+	if len(refs) > 1 {
+		kept := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			if ref.SizeBytes > scommon.MaxAutoScanBytes {
+				skipped = append(skipped, ref.RepoName+":"+ref.Tag)
+				continue
+			}
+			kept = append(kept, ref.ImageRefId)
+		}
+		// Every image in the request was oversized -- there is no job to
+		// run, and silently returning an empty one would look like a scan
+		// that found nothing.
+		if len(kept) == 0 {
+			return object.NewError("every image in this request is over " +
+				scommon.HumanBytes(scommon.MaxAutoScanBytes) +
+				"; scan each one on its own: " + strings.Join(skipped, ", "))
+		}
+		if len(skipped) > 0 {
+			// Logged rather than returned on the ScanJob: that would be
+			// transient response-only state on a persisted entity. Both
+			// UIs filter before POSTing and so already know what they
+			// left out; this is for direct API callers and for anyone
+			// reading the logs afterwards.
+			vnic.Resources().Logger().Info("scanjob: skipped ", len(skipped),
+				" image(s) over ", scommon.HumanBytes(scommon.MaxAutoScanBytes),
+				" in a multi-image job: ", strings.Join(skipped, ", "))
+		}
+		job.ImageRefIds = kept
+		job.TotalImages = int32(len(kept))
 	}
 
 	l8common.GenerateID(&job.ScanJobId)
