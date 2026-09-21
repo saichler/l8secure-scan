@@ -11,6 +11,18 @@ if [ ! -f "$FILE" ]; then
   exit 1
 fi
 
+# Pin the target context instead of inheriting the ambient one. `kind create
+# cluster` rewrites the global current-context, so whichever kind cluster was
+# created last would otherwise own every kubectl call here -- which is how
+# sibling projects' pods ended up inside this cluster (plans/kubectl-context-pinning.md).
+# Only for kind: the other modes deploy to real clusters, where inheriting the
+# caller's context is the intent.
+CLUSTER_NAME="secscan"
+KUBECTL=(kubectl)
+if [ "$MODE" = "kind" ]; then
+  KUBECTL=(kubectl --context "kind-${CLUSTER_NAME}")
+fi
+
 echo "Removing secscan (${MODE})..."
-kubectl delete -f "$FILE" --ignore-not-found
+"${KUBECTL[@]}" delete -f "$FILE" --ignore-not-found
 echo "secscan removed (${MODE})."

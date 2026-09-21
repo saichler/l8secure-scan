@@ -18,26 +18,38 @@ if [ "$MODE" = "baremetal" ] || [ "$MODE" = "kind" ]; then
   WORKLOAD_KIND="statefulset"
 fi
 
+# Pin the target context instead of inheriting the ambient one. `kind create
+# cluster` rewrites the global current-context, so whichever kind cluster was
+# created last would otherwise own every kubectl call here -- which is how
+# sibling projects' pods ended up inside this cluster (plans/kubectl-context-pinning.md).
+# Only for kind: the other modes deploy to real clusters, where inheriting the
+# caller's context is the intent.
+CLUSTER_NAME="secscan"
+KUBECTL=(kubectl)
+if [ "$MODE" = "kind" ]; then
+  KUBECTL=(kubectl --context "kind-${CLUSTER_NAME}")
+fi
+
 echo "Applying secscan (${MODE})..."
-kubectl apply -f "$FILE"
+"${KUBECTL[@]}" apply -f "$FILE"
 
 # Dependency order (PRD §16): vnet -> backend -> scanner -> web -> log-vnet -> log-agent
 echo "Waiting for secscan-vnet..."
-kubectl -n secscan rollout status "${WORKLOAD_KIND}/secscan-vnet" --timeout=180s
+"${KUBECTL[@]}" -n secscan rollout status "${WORKLOAD_KIND}/secscan-vnet" --timeout=180s
 
 echo "Waiting for secscan (backend)..."
-kubectl -n secscan rollout status statefulset/secscan --timeout=180s
+"${KUBECTL[@]}" -n secscan rollout status statefulset/secscan --timeout=180s
 
 echo "Waiting for secscan-scanner..."
-kubectl -n secscan rollout status deployment/secscan-scanner --timeout=120s
+"${KUBECTL[@]}" -n secscan rollout status deployment/secscan-scanner --timeout=120s
 
 echo "Waiting for secscan-web..."
-kubectl -n secscan rollout status "${WORKLOAD_KIND}/secscan-web" --timeout=120s
+"${KUBECTL[@]}" -n secscan rollout status "${WORKLOAD_KIND}/secscan-web" --timeout=120s
 
 echo "Waiting for secscan-log-vnet..."
-kubectl -n secscan rollout status "${WORKLOAD_KIND}/secscan-log-vnet" --timeout=120s
+"${KUBECTL[@]}" -n secscan rollout status "${WORKLOAD_KIND}/secscan-log-vnet" --timeout=120s
 
 echo "Waiting for secscan-log-agent..."
-kubectl -n secscan rollout status "${WORKLOAD_KIND}/secscan-log-agent" --timeout=120s
+"${KUBECTL[@]}" -n secscan rollout status "${WORKLOAD_KIND}/secscan-log-agent" --timeout=120s
 
 echo "secscan deployed (${MODE})."

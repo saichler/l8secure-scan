@@ -22,6 +22,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Resolved once, up front, then passed explicitly to every call below. This
+# script also runs against real clusters (gke), so it cannot hardcode a kind
+# context -- but leaving it ambient means a sibling project creating a kind
+# cluster mid-session silently retargets it, and this one installs
+# credentials (plans/kubectl-context-pinning.md). Pinning the resolved value
+# also stops the target moving between the first apply and the rollout.
+# Override with KUBE_CONTEXT=... to aim it somewhere else.
+KUBE_CONTEXT="${KUBE_CONTEXT:-$(kubectl config current-context 2>/dev/null)}"
+if [ -z "$KUBE_CONTEXT" ]; then
+  echo "error: no current kubectl context -- set KUBE_CONTEXT=<context>" >&2
+  exit 1
+fi
+KUBECTL=(kubectl --context "${KUBE_CONTEXT}")
+
 NAMESPACE="secscan"
 DEPLOYMENT="secscan-scanner"
 CONTAINER="secscan-scanner"
@@ -133,18 +147,18 @@ echo "  docker config : ${DOCKER_SECRET} (_json_key for ${REGISTRY_HOSTS[*]})"
 # The SA manifest in ../../gcr targets its own namespace; the scanner lives
 # in ${NAMESPACE}, so the namespace is rewritten on the way in.
 sed "s|^\([[:space:]]*\)namespace:.*|\1namespace: ${NAMESPACE}|" "${WORK}/sa.yaml" \
-  | kubectl apply -f -
+  | "${KUBECTL[@]}" apply -f -
 
-kubectl -n "$NAMESPACE" create secret generic "$DOCKER_SECRET" \
+"${KUBECTL[@]}" -n "$NAMESPACE" create secret generic "$DOCKER_SECRET" \
   --type=kubernetes.io/dockerconfigjson \
   --from-file=.dockerconfigjson="${WORK}/config.json" \
   --dry-run=client -o yaml \
-  | kubectl apply -f -
+  | "${KUBECTL[@]}" apply -f -
 
 # --- point the scanner at them -------------------------------------------
 # Strategic merge patch: volumes/volumeMounts/env/imagePullSecrets all merge
 # on `name`, so re-running this is idempotent.
-kubectl -n "$NAMESPACE" patch deployment "$DEPLOYMENT" --type=strategic -p "$(cat <<PATCH
+"${KUBECTL[@]}" -n "$NAMESPACE" patch deployment "$DEPLOYMENT" --type=strategic -p "$(cat <<PATCH
 {
   "spec": {
     "template": {
@@ -189,7 +203,7 @@ PATCH
 )"
 
 echo "Waiting for ${DEPLOYMENT} to roll out..."
-kubectl -n "$NAMESPACE" rollout status "deployment/${DEPLOYMENT}" --timeout=180s
+"${KUBECTL[@]}" -n "$NAMESPACE" rollout status "deployment/${DEPLOYMENT}" --timeout=180s
 
 echo "secscan-scanner is configured with the GCR/GAR service-account key."
 echo "The resolver retries buildDate=0 refs every 15s -- they should fill in shortly."

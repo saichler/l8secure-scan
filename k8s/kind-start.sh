@@ -3,6 +3,9 @@ set -e
 
 CLUSTER_NAME="secscan"
 KIND_CONFIG="kind-cluster.yaml"
+# Always this cluster, never the ambient context -- see
+# plans/kubectl-context-pinning.md.
+KUBECTL=(kubectl --context "kind-${CLUSTER_NAME}")
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Install KIND if not present
@@ -48,7 +51,7 @@ echo "Creating KIND cluster '${CLUSTER_NAME}' (1 node)..."
 kind create cluster --name "${CLUSTER_NAME}" --config "${SCRIPT_DIR}/${KIND_CONFIG}"
 
 echo "Waiting for nodes to be Ready..."
-kubectl wait --for=condition=Ready nodes --all --timeout=120s
+"${KUBECTL[@]}" wait --for=condition=Ready nodes --all --timeout=120s
 
 echo "Loading Docker images into KIND cluster..."
 IMAGES=(
