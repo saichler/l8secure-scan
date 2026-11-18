@@ -34,36 +34,36 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 
 IMAGES=(
   # This project's own (go/build-all-images.sh's tags)
-  saichler/secscan:latest
-  saichler/secscan-web:latest
-  saichler/secscan-vnet:latest
-  saichler/secscan-scanner:latest
-  saichler/secscan-log-vnet:latest
-  saichler/secscan-log-agent:latest
+  registry.layer-8.dev:44443/secscan/secscan:latest
+  registry.layer-8.dev:44443/secscan/secscan-web:latest
+  registry.layer-8.dev:44443/secscan/secscan-vnet:latest
+  registry.layer-8.dev:44443/secscan/secscan-scanner:latest
+  registry.layer-8.dev:44443/secscan/secscan-log-vnet:latest
+  registry.layer-8.dev:44443/secscan/secscan-log-agent:latest
   # ../probler's own (go/tests/mocks/seed.go's problerImageRefs)
-  saichler/probler-admission:latest
-  saichler/probler-alarms:latest
-  saichler/probler-collector:latest
-  saichler/probler-inv-box:latest
-  saichler/probler-inv-gpu:latest
-  saichler/probler-inv-k8s:latest
-  saichler/probler-logagent:latest
-  saichler/logs-vnet:latest
-  saichler/probler-maint:latest
-  saichler/probler-webui2:latest
-  saichler/probler-orm:latest
-  saichler/probler-parser:latest
-  saichler/probler-ptctl:latest
-  saichler/probler-topo:latest
-  saichler/probler-vnet:latest
-  saichler/layer8-webui:latest
+  registry.layer-8.dev:44443/probler/probler-admission:latest
+  registry.layer-8.dev:44443/probler/probler-alarms:latest
+  registry.layer-8.dev:44443/probler/probler-collector:latest
+  registry.layer-8.dev:44443/probler/probler-inv-box:latest
+  registry.layer-8.dev:44443/probler/probler-inv-gpu:latest
+  registry.layer-8.dev:44443/probler/probler-inv-k8s:latest
+  registry.layer-8.dev:44443/probler/probler-logagent:latest
+  registry.layer-8.dev:44443/probler/logs-vnet:latest
+  registry.layer-8.dev:44443/probler/probler-maint:latest
+  registry.layer-8.dev:44443/probler/probler-webui2:latest
+  registry.layer-8.dev:44443/probler/probler-orm:latest
+  registry.layer-8.dev:44443/probler/probler-parser:latest
+  registry.layer-8.dev:44443/probler/probler-ptctl:latest
+  registry.layer-8.dev:44443/probler/probler-topo:latest
+  registry.layer-8.dev:44443/probler/probler-vnet:latest
+  registry.layer-8.dev:44443/probler/layer8-webui:latest
   # ../l8erp's own (go/tests/mocks/seed.go's l8erpImageRefs)
-  saichler/erp-vnet:latest
-  saichler/erp-logs-vnet:latest
-  saichler/erp-web:latest
-  saichler/erp-maint:latest
-  saichler/erp:latest
-  saichler/erp-log-agent:latest
+  registry.layer-8.dev:44443/erp/erp-vnet:latest
+  registry.layer-8.dev:44443/erp/erp-logs-vnet:latest
+  registry.layer-8.dev:44443/erp/erp-web:latest
+  registry.layer-8.dev:44443/erp/erp-maint:latest
+  registry.layer-8.dev:44443/erp/erp:latest
+  registry.layer-8.dev:44443/erp/erp-log-agent:latest
   # Private-registry test image -- unlike everything else in this list,
   # this one does NOT already exist locally by default. Pull it first with
   # authenticated docker (Trivy's own "remote" registry call has no access

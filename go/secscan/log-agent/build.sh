@@ -7,4 +7,4 @@ case "$1" in
     "") PLATFORM=linux/amd64,linux/arm64 ;;
     *) echo "Usage: $0 [amd64|arm64]"; exit 1 ;;
 esac
-docker buildx build --no-cache --platform=$PLATFORM -t saichler/secscan-log-agent:latest --push .
+docker buildx build --no-cache --platform=$PLATFORM -t registry.layer-8.dev:44443/secscan/secscan-log-agent:latest --push .

@@ -13,7 +13,7 @@ go mod vendor
 # infrastructure: local postgres container matching secscan.json's
 # credentials.postgres.creds.secscan {aside:secscan, yside:5432, zside:secscan}
 docker rm -f unsecure-postgres 2>/dev/null || true
-docker run -d --name unsecure-postgres -p 5432:5432 -v /data/:/data/ saichler/unsecure-postgres:latest secscan secscan secscan 5432
+docker run -d --name unsecure-postgres -p 5432:5432 -v /data/:/data/ registry.layer-8.dev:44443/library/unsecure-postgres:latest secscan secscan secscan 5432
 
 rm -rf demo
 mkdir -p demo

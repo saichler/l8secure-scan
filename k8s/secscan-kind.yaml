@@ -48,7 +48,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: secscan-vnet
-          image: saichler/secscan-vnet:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-vnet:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33005
@@ -101,7 +101,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: secscan-log-vnet
-          image: saichler/secscan-log-vnet:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-log-vnet:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33010
@@ -153,7 +153,7 @@ spec:
       hostNetwork: true
       containers:
         - name: secscan
-          image: saichler/secscan:latest
+          image: registry.layer-8.dev:44443/secscan/secscan:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
@@ -197,7 +197,7 @@ spec:
       hostNetwork: true
       containers:
         - name: secscan-scanner
-          image: saichler/secscan-scanner:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-scanner:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
@@ -220,7 +220,7 @@ spec:
             # "docker,containerd,podman,remote" -- with the containerd
             # socket mounted above, this DEFAULT chain still fails on any
             # image, even one that's live and running right now
-            # (verified: docker.io/saichler/secscan-scanner:latest, an
+            # (verified: registry.layer-8.dev:44443/secscan/secscan-scanner:latest, an
             # actively-running pod's own image, failed identically) with
             # "unable to populate: unable to open: failed to copy the
             # image: ... not found" -- a real bug in how Trivy chains
@@ -316,7 +316,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: secscan-web
-          image: saichler/secscan-web:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-web:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2790
@@ -368,7 +368,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: secscan-log-agent
-          image: saichler/secscan-log-agent:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-log-agent:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: LOGPATH

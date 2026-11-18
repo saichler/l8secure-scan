@@ -29,9 +29,11 @@ spec:
         app: secscan-vnet
     spec:
       hostNetwork: true
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan-vnet
-          image: saichler/secscan-vnet:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-vnet:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33005
@@ -68,9 +70,11 @@ spec:
         app: secscan-log-vnet
     spec:
       hostNetwork: true
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan-log-vnet
-          image: saichler/secscan-log-vnet:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-log-vnet:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 33010
@@ -108,9 +112,11 @@ spec:
       labels:
         app: secscan
     spec:
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan
-          image: saichler/secscan:latest
+          image: registry.layer-8.dev:44443/secscan/secscan:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
@@ -150,9 +156,11 @@ spec:
       labels:
         app: secscan-scanner
     spec:
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan-scanner
-          image: saichler/secscan-scanner:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-scanner:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_IP
@@ -187,9 +195,11 @@ spec:
         app: secscan-web
     spec:
       hostNetwork: true
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan-web
-          image: saichler/secscan-web:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-web:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 2790
@@ -225,9 +235,11 @@ spec:
       labels:
         app: secscan-log-agent
     spec:
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: secscan-log-agent
-          image: saichler/secscan-log-agent:latest
+          image: registry.layer-8.dev:44443/secscan/secscan-log-agent:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: LOGPATH

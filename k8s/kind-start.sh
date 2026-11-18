@@ -55,12 +55,12 @@ echo "Waiting for nodes to be Ready..."
 
 echo "Loading Docker images into KIND cluster..."
 IMAGES=(
-  saichler/secscan-vnet:latest
-  saichler/secscan:latest
-  saichler/secscan-scanner:latest
-  saichler/secscan-web:latest
-  saichler/secscan-log-vnet:latest
-  saichler/secscan-log-agent:latest
+  registry.layer-8.dev:44443/secscan/secscan-vnet:latest
+  registry.layer-8.dev:44443/secscan/secscan:latest
+  registry.layer-8.dev:44443/secscan/secscan-scanner:latest
+  registry.layer-8.dev:44443/secscan/secscan-web:latest
+  registry.layer-8.dev:44443/secscan/secscan-log-vnet:latest
+  registry.layer-8.dev:44443/secscan/secscan-log-agent:latest
 )
 
 for img in "${IMAGES[@]}"; do

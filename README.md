@@ -28,11 +28,11 @@ Six binaries, deployed as separate Kubernetes workloads (see `k8s/`):
 
 | Binary | Image | Role |
 |---|---|---|
-| `secscan` | `saichler/secscan` | Backend: ORM-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `Cve`, `ImageRefCve`, `ScanJob`) + action services (`ImgRefAdd`, `ImgRefDel`, `VulnRep`). Postgres-backed, in `saichler/secscan-postgres`. |
-| `secscan-web` | `saichler/secscan-web` | Serves the desktop/mobile UI and routes HTTP requests to the backend over the Layer 8 vnet. |
-| `secscan-scanner` | `saichler/secscan-scanner` | Bundles the Trivy CLI. Runs two poll-claim-dispatch loops: a metadata **resolver** (fetches build dates for newly-added refs via the registry) and the **scan loop** (claims queued `ScanJob`s, shells out to Trivy, writes CVE findings). |
-| `secscan-vnet` | `saichler/secscan-vnet` | Layer 8 virtual network hub the other services connect through. |
-| `secscan-log-vnet` / `secscan-log-agent` | `saichler/secscan-log-vnet` / `-log-agent` | Centralized logging plane. |
+| `secscan` | `registry.layer-8.dev:44443/secscan/secscan` | Backend: ORM-backed services (`Customer`, `ImageCategory`, `ImageGroup`, `ImageRef`, `Cve`, `ImageRefCve`, `ScanJob`) + action services (`ImgRefAdd`, `ImgRefDel`, `VulnRep`). Postgres-backed, in `secscan-postgres`. |
+| `secscan-web` | `registry.layer-8.dev:44443/secscan/secscan-web` | Serves the desktop/mobile UI and routes HTTP requests to the backend over the Layer 8 vnet. |
+| `secscan-scanner` | `registry.layer-8.dev:44443/secscan/secscan-scanner` | Bundles the Trivy CLI. Runs two poll-claim-dispatch loops: a metadata **resolver** (fetches build dates for newly-added refs via the registry) and the **scan loop** (claims queued `ScanJob`s, shells out to Trivy, writes CVE findings). |
+| `secscan-vnet` | `registry.layer-8.dev:44443/secscan/secscan-vnet` | Layer 8 virtual network hub the other services connect through. |
+| `secscan-log-vnet` / `secscan-log-agent` | `registry.layer-8.dev:44443/secscan/secscan-log-vnet` / `-log-agent` | Centralized logging plane. |
 
 Proto-defined data model: [`proto/secscan.proto`](proto/secscan.proto) (regenerate bindings with `proto/make-bindings.sh`).
 
